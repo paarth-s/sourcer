@@ -60,17 +60,48 @@ class Network:
     @classmethod
     def load(cls, path: Path, warm_contacts: dict | None = None) -> "Network":
         path = Path(os.environ.get("SOURCER_CONNECTIONS", path))
-        if not path.exists():
-            return cls([], warm_contacts)
-        return cls(parse_connections(path.read_text(encoding="utf-8-sig")), warm_contacts)
+        people: list[Connection] = []
+        # LinkedIn export + address-book contacts (`sourcer contacts`), same CSV format.
+        for p in (path, path.with_name("Contacts.csv")):
+            if p.exists():
+                people += parse_connections(p.read_text(encoding="utf-8-sig"))
+        return cls(people, warm_contacts)
 
     def at(self, company: str) -> list[Connection]:
-        """Your connections at `company`, most useful for a referral first."""
-        return sorted(self.by_company.get(normalize_company(company), []), key=referral_rank)
+        """Your connections at `company`, most useful for a referral first.
+        Matching ignores spaces, so "Expediagroup" (from an email domain) = "Expedia Group"."""
+        people = self.by_company.get(normalize_company(company)) or \
+            self._compact().get(_compact_key(company), [])
+        return sorted(people, key=referral_rank)
+
+    def _compact(self) -> dict[str, list[Connection]]:
+        if not hasattr(self, "_compact_index"):
+            idx: dict[str, list[Connection]] = defaultdict(list)
+            for people in self.by_company.values():
+                idx[_compact_key(people[0].company)] += people
+            self._compact_index = idx
+        return self._compact_index
 
     def companies(self) -> dict[str, str]:
         """normalized key -> display name, for every company where you know someone."""
         return {k: v[0].company for k, v in self.by_company.items() if k}
+
+
+_TRAILING = ("group", "inc", "labs", "hq", "ai", "io", "app", "technologies", "technology",
+             "holdings", "corp", "corporation", "co", "llc")
+
+
+def _compact_key(name: str) -> str:
+    """'Expedia Group' / 'Expediagroup' / 'expedia-group.com' -> 'expedia'."""
+    k = re.sub(r"[^a-z0-9]", "", name.lower())
+    changed = True
+    while changed:
+        changed = False
+        for suf in _TRAILING:
+            if k.endswith(suf) and len(k) > len(suf) + 2:
+                k, changed = k[: -len(suf)], True
+    return k
+
 
 
 _RANKS = [

@@ -42,6 +42,9 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("selftest", help="live check of every source, scoring and tailoring")
 
+    ct = sub.add_parser("contacts", help="import a Mac Contacts .vcf export as warm contacts")
+    ct.add_argument("vcf", help="path to the exported .vcf file")
+
     rv = sub.add_parser("resume", help="render a base resume variant (sanity-check the bank)")
     rv.add_argument("--variant", choices=["ds", "mle", "product"], default="ds")
 
@@ -133,6 +136,20 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{ats}/{slug}: {len(jobs)} open roles")
         for j in jobs[:20]:
             print(f"  - {j.title} ({j.location})")
+        return 0
+
+    if args.cmd == "contacts":
+        from collections import Counter
+
+        from .contacts import parse_vcards, write_connections_csv
+        people = parse_vcards(Path(args.vcf).read_text(encoding="utf-8", errors="replace"))
+        out = cfg.connections_path.with_name("Contacts.csv")
+        write_connections_csv(people, out)
+        top = Counter(p.company for p in people).most_common(25)
+        print(f"{len(people)} contacts with a known company -> {out} (git-ignored)")
+        for company, n in top:
+            print(f"  {n:3d}  {company}")
+        print("For scheduled runs: gzip -c data/Contacts.csv | base64 | gh secret set CONTACTS_B64")
         return 0
 
     if args.cmd == "selftest":

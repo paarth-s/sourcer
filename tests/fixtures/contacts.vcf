@@ -1,0 +1,23 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Rivera;Maya;;;
+FN:Maya Rivera
+ORG:Zillow Group;
+TITLE:Staff Data Scientist
+item1.EMAIL;type=INTERNET;type=pref:maya@gmail.com
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Leo Park
+EMAIL;type=INTERNET;type=WORK:leo.park@expediagroup.com
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Sam Old
+EMAIL;type=INTERNET:sam@umich.edu
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Ana Lee
+EMAIL:ana@mail.acme.co.uk
+END:VCARD

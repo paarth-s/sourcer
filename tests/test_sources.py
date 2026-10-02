@@ -186,3 +186,18 @@ def test_referral_ranking():
               Connection("C", "Rec", "Acme", "Technical Recruiter"),
               Connection("D", "Head", "Acme", "Head of Data Science")]
     assert [c.first_name for c in Network(people).at("Acme")] == ["C", "D", "B", "A"]
+
+
+def test_vcard_import(tmp_path):
+    from sourcer.contacts import parse_vcards, write_connections_csv
+    people = parse_vcards((Path(__file__).parent / "fixtures" / "contacts.vcf").read_text())
+    got = {p.name: (p.company, p.position) for p in people}
+    assert got["Maya Rivera"] == ("Zillow Group", "Staff Data Scientist")
+    assert got["Leo Park"][0] == "Expediagroup"          # from work email domain
+    assert got["Ana Lee"][0] == "Acme"
+    assert "Sam Old" not in got                          # school / personal domains skipped
+    write_connections_csv(people, tmp_path / "Contacts.csv")
+    (tmp_path / "Connections.csv").write_text("First Name,Last Name,URL,Email Address,Company,Position,Connected On\n")
+    net = Network.load(tmp_path / "Connections.csv")
+    assert net.at("Zillow Group")[0].name == "Maya Rivera"
+    assert net.at("Expedia Group")[0].name == "Leo Park"
