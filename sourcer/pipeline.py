@@ -56,7 +56,7 @@ def _register_companies(cfg: Config, store: Store, network: Network,
     for c in cfg.watchlist:
         add(c["name"], "watchlist", c.get("ats"), c.get("slug"))
     for ev in funded:
-        add(ev.company, "funding")
+        add(ev.company, "edgar" if ev.source == "sec-form-d" else "funding")
     for _key, name in network.companies().items():
         add(name, "connection")
     return to_probe
@@ -75,12 +75,17 @@ def run(cfg: Config, *, skip_network_fetch: bool = False) -> RunResult:
     events: list[FundingEvent] = []
     if not skip_network_fetch:
         events += fetch_funding(cfg.sources)
-        events += fetch_form_d(cfg.sources.get("edgar", {}), [c["name"] for c in cfg.watchlist])
+        tracked = ([c["name"] for c in cfg.watchlist] + list(network.companies().values())
+                   + [e.company for e in events])
+        events += fetch_form_d(cfg.sources.get("edgar", {}), tracked)
     relevant_funded = []
     for ev in events:
         store.add_funding(ev)
         fit, _ = company_fit(ev, profile)
-        if fit >= COMPANY_FIT_MIN or network.at(ev.company):
+        # A Form D with industry details is a tech startup that just raised (see edgar.py):
+        # worth scanning its job board even without on-profile keywords.
+        stealth_raise = ev.source == "sec-form-d" and "Industry:" in ev.summary
+        if fit >= COMPANY_FIT_MIN or network.at(ev.company) or stealth_raise:
             relevant_funded.append(ev)
     res.funding_seen = relevant_funded
     funding_by_key = store.recent_funding(days=120)
@@ -91,7 +96,7 @@ def run(cfg: Config, *, skip_network_fetch: bool = False) -> RunResult:
     providers = ats_cfg.get("providers", list(ats_mod.PROVIDERS))
     max_probes = ats_cfg.get("max_probes_per_run", 80)
     to_probe = _register_companies(cfg, store, network, relevant_funded)
-    order = {"watchlist": 0, "funding": 1, "connection": 2}
+    order = {"watchlist": 0, "funding": 1, "connection": 2, "edgar": 3}
     to_probe.sort(key=lambda t: order.get(t[2], 9))
     for key, name, _origin in ([] if skip_network_fetch else to_probe[:max_probes]):
         found = ats_mod.discover_board(s, name, providers)

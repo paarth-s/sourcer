@@ -18,11 +18,15 @@ rss_feeds:
   - https://www.finsmes.com/feed
   - https://www.prnewswire.com/rss/financial-services-latest-news/venture-capital-list.rss
 
-# --- SEC Form D (often filed before the raise is announced) -------------------
+# --- SEC Form D (optional early signal) ---------------------------------------
+# Startups file a Form D within ~15 days of closing a round - often before any press.
+# Off unless the SEC_USER_AGENT secret is set ("Your Name you@email.com"), since SEC
+# requires a contact email to read filings and without details it's mostly noise.
 edgar:
   enabled: true
-  lookback_days: 14
-  # Full-text search terms over recent Form D filings (matches entity names etc.)
+  lookback_days: 3          # ~500 Form D filings/day; most are funds and get filtered out
+  max_filings_read: 250     # filing details read per run (needs SEC_USER_AGENT)
+  # Filer names containing these are always kept (e.g. "Acme Pricing Inc").
   keywords:
     - pricing
     - travel
@@ -30,8 +34,8 @@ edgar:
     - proptech
     - personaliz
     - recommend
-  # Required by SEC fair-access policy: "Name contact@example.com".
-  # Read from the SEC_USER_AGENT env var if set.
+  # SEC requires "Your Name you@example.com" to read filing details (industry, amount).
+  # Without it, only filer names/locations are used. Read from SEC_USER_AGENT.
   user_agent: "sourcer job-search bot (set SEC_USER_AGENT)"
 
 # --- Hacker News "Who is hiring?" ---------------------------------------------

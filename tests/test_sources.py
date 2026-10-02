@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from sourcer.linkedin import Network, parse_connections
 from sourcer.models import normalize_company
 from sourcer.sources import ats, edgar, hn
@@ -81,3 +83,16 @@ def test_eeo_and_whitespace():
     assert Question("U.S. Equal Opportunity Employment Information (Completion is voluntary)").is_eeo
     assert not Question("How did you hear about this job?").is_eeo
     assert Job(company="X", title=" Account Manager ", url="", source="t", external_id="1").title == "Account Manager"
+
+
+def test_form_d_enrich(fixture):
+    ev = edgar.parse_search(fixture("edgar.json"))[0]
+    xml = (Path(__file__).parent / "fixtures" / "form_d.xml").read_text()
+    edgar.enrich(ev, xml)
+    assert ev.amount_usd == 14e6 and "Other Technology" in ev.headline
+    assert edgar.is_startup_raise(ev, xml)
+    fund_xml = xml.replace("<offeringData>", "<offeringData><investmentFundInfo><investmentFundType>Hedge Fund"
+                           "</investmentFundType></investmentFundInfo>")
+    assert not edgar.is_startup_raise(ev, fund_xml)
+    re_xml = xml.replace("Other Technology", "Other Real Estate")
+    assert not edgar.is_startup_raise(ev, re_xml)
