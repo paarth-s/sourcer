@@ -81,7 +81,9 @@ def main(argv: list[str] | None = None) -> int:
             if already or local.hour < 6:
                 print(f"daily: skipping ({'already sent today' if already else f'{local:%H:%M} PT is before 6am'})")
                 return 0
-        res = run(cfg)
+        # Daily mode records what was alerted only after the email is delivered, so a failed
+        # send doesn't silently drop roles from the next digest.
+        res = run(cfg, mark_seen=not args.daily)
         md = render(res)
         cfg.reports_dir.mkdir(exist_ok=True)
         path = cfg.reports_dir / f"{datetime.now(timezone.utc):%Y-%m-%d-%H%M}.md"
@@ -90,6 +92,8 @@ def main(argv: list[str] | None = None) -> int:
         (cfg.reports_dir / "latest-email.html").write_text(render_email(res)[1])
         sent = [] if args.no_send else deliver(res, md, always_email=args.daily)
         if args.daily and "email" in sent:
+            from .pipeline import mark_delivered
+            mark_delivered(cfg, res)
             store = Store(cfg.db_path)
             store.set_meta("last_daily_email", today)
             store.close()

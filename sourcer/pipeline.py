@@ -75,7 +75,9 @@ def _register_companies(cfg: Config, store: Store, network: Network,
     return to_probe
 
 
-def run(cfg: Config, *, skip_network_fetch: bool = False) -> RunResult:
+def run(cfg: Config, *, skip_network_fetch: bool = False, mark_seen: bool = True) -> RunResult:
+    """One sourcing pass. With mark_seen=False the alerted roles/leads are not recorded, so the
+    caller can call mark_delivered() only once the email actually went out."""
     res = RunResult()
     profile = cfg.profile
     store = Store(cfg.db_path)
@@ -159,10 +161,9 @@ def run(cfg: Config, *, skip_network_fetch: bool = False) -> RunResult:
     if not skip_network_fetch:
         res.packets = prepare_packets(cfg, res.new_jobs)
 
-    store.mark_alerted([sj.job.uid for sj in res.new_jobs])
-    for lead in res.leads:
-        store.mark_lead(normalize_company(lead.company))
     store.close()
+    if mark_seen:
+        mark_delivered(cfg, res)
     return res
 
 
@@ -187,10 +188,11 @@ def score_and_store(jobs: list[Job], store: Store, network: Network,
         is_new = store.upsert_job(job, score)
         if score < candidate_floor or store.was_alerted(job.uid):
             continue
-        if not is_new and not first_run:
+        if not (is_new or first_run or store.is_pending(job.uid)):
             continue
         if first_run and job.posted_at and now - job.posted_at > timedelta(days=FIRST_RUN_MAX_AGE_DAYS):
             continue
+        store.mark_pending(job.uid)  # queued for the next digest until delivery is confirmed
         new.append(ScoredJob(job=job, score=score, reasons=reasons, connections=conns, funding=funding))
     store.conn.commit()
     return new, by_company
@@ -250,3 +252,12 @@ def prepare_packets(cfg: Config, jobs: list[ScoredJob]) -> list[str]:
         sj.packet = str(path)
         paths.append(str(path))
     return paths
+
+
+def mark_delivered(cfg: Config, res: RunResult) -> None:
+    """Record alerted roles and leads so they aren't repeated in the next digest."""
+    store = Store(cfg.db_path)
+    store.mark_alerted([sj.job.uid for sj in res.new_jobs])
+    for lead in res.leads:
+        store.mark_lead(normalize_company(lead.company))
+    store.close()

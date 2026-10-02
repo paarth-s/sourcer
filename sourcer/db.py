@@ -80,9 +80,17 @@ class Store:
             self.conn.execute("UPDATE jobs SET last_seen=?, score=? WHERE uid=?", (now, score, job.uid))
         return is_new
 
+    # jobs.alerted: 0 = seen, 1 = delivered in a digest, 2 = queued, awaiting delivery
     def was_alerted(self, uid: str) -> bool:
         row = self.conn.execute("SELECT alerted FROM jobs WHERE uid=?", (uid,)).fetchone()
-        return bool(row and row["alerted"])
+        return bool(row and row["alerted"] == 1)
+
+    def is_pending(self, uid: str) -> bool:
+        row = self.conn.execute("SELECT alerted FROM jobs WHERE uid=?", (uid,)).fetchone()
+        return bool(row and row["alerted"] == 2)
+
+    def mark_pending(self, uid: str) -> None:
+        self.conn.execute("UPDATE jobs SET alerted=2 WHERE uid=? AND alerted=0", (uid,))
 
     def mark_alerted(self, uids: list[str]) -> None:
         self.conn.executemany("UPDATE jobs SET alerted=1 WHERE uid=?", [(u,) for u in uids])

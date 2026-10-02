@@ -67,3 +67,13 @@ def test_end_to_end(tmp_path, fixture, monkeypatch):
     res2 = pipeline.run(cfg)
     assert res2.new_jobs == [] and res2.leads == []
     assert set(calls) == {("greenhouse", "fareloop"), ("lever", "nestwise")}
+
+
+def test_unsent_roles_are_not_marked(tmp_path, fixture, monkeypatch):
+    cfg, _ = _setup(tmp_path, fixture, monkeypatch)
+    res = pipeline.run(cfg, mark_seen=False)       # email failed: nothing recorded
+    assert res.new_jobs
+    res2 = pipeline.run(cfg, mark_seen=False)
+    assert [j.job.uid for j in res2.new_jobs] == [j.job.uid for j in res.new_jobs]
+    pipeline.mark_delivered(cfg, res2)             # email sent
+    assert pipeline.run(cfg).new_jobs == []

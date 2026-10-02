@@ -55,8 +55,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: data/sourcer.db
-          key: sourcer-db-${{ github.run_id }}
-          restore-keys: sourcer-db-
+          key: sourcer-db-v2-${{ github.run_id }}
+          restore-keys: sourcer-db-v2-
 
       # Private inputs live in secrets, never in this (public) repo:
       #   base64 -i Connections.csv      | gh secret set LINKEDIN_CONNECTIONS_B64
@@ -93,4 +93,4 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: data/sourcer.db
-          key: sourcer-db-${{ github.run_id }}
+          key: sourcer-db-v2-${{ github.run_id }}
