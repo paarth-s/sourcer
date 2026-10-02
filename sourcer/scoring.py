@@ -57,13 +57,20 @@ def location_excluded(location: str, profile: dict, title: str = "") -> bool:
     return bool(_hits(f"{location} {title}".lower(), profile.get("exclude_locations") or []))
 
 
+_US_ONLY = {"united states", "united states of america", "usa", "us", "u.s.", "anywhere"}
+
+
 def location_ok(location: str, profile: dict, title: str = "") -> bool:
     if location_excluded(location, profile, title):
         return False
     prefs = profile.get("locations") or []
     if not prefs or not location:
         return True
-    return any(p.lower() in location.lower() for p in prefs)
+    loc = location.lower()
+    # Bare country = remote-in-the-US postings (e.g. Airbnb "United States").
+    if loc.strip(" ()-") in _US_ONLY:
+        return True
+    return any(_has(loc, p.lower()) for p in prefs)
 
 
 def score_job(job: Job, profile: dict, *, n_connections: int = 0,
@@ -96,6 +103,8 @@ def score_job(job: Job, profile: dict, *, n_connections: int = 0,
         score -= 10
         reasons.append("stretch level")
     if not location_ok(job.location, profile):
+        if profile.get("location_strict"):
+            return 0.0, []  # outside the places you'll work
         score -= 15
         reasons.append(f"location: {job.location}")
 

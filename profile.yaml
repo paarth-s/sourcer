@@ -99,17 +99,32 @@ domains:
     - leasing
     - commercial real estate
 
-# Where you'd work. Empty list = no location filter.
-# Postings whose location matches none of these (and aren't remote) are penalized, not dropped.
+# Where you'd work. With location_strict, postings must match one of these or they're
+# dropped (a bare "United States" / "USA" location counts as US-remote). Without it,
+# non-matching locations are only scored down.
+location_strict: true
 locations:
   - remote
-  - new york
   - san francisco
+  - sf
   - bay area
-  - seattle
-  - chicago
-  - detroit
-  - ann arbor
+  - south san francisco
+  - oakland
+  - berkeley
+  - emeryville
+  - san mateo
+  - burlingame
+  - foster city
+  - redwood city
+  - menlo park
+  - palo alto
+  - mountain view
+  - sunnyvale
+  - santa clara
+  - cupertino
+  - san jose
+  - los gatos
+  - fremont
 
 # Regions that disqualify a "remote" posting for you (matched in location or title).
 exclude_locations:
@@ -154,7 +169,7 @@ exclude_locations:
   - vietnam
   - apac
   - latam
-  - canada only
+  - canada
   - australia
   - singapore
   - israel

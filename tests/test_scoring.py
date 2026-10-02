@@ -32,11 +32,15 @@ def test_connections_and_funding_boost(profile):
     assert "2 connections there" in why
 
 
-def test_location_penalty(profile):
-    ok, _ = score_job(job("Data Scientist", loc="New York, NY"), profile, now=NOW)
-    far, _ = score_job(job("Data Scientist", loc="Austin, TX"), profile, now=NOW)
-    assert ok - far == 15
+def test_location_filter(profile):
+    ok, _ = score_job(job("Data Scientist", loc="San Francisco, CA"), profile, now=NOW)
+    remote, _ = score_job(job("Data Scientist", loc="Remote - USA"), profile, now=NOW)
+    assert ok >= profile["alert_threshold"] and remote == ok
+    assert score_job(job("Data Scientist", loc="Seattle, WA"), profile, now=NOW)[0] == 0
     assert score_job(job("Data Scientist", loc="Bengaluru"), profile, now=NOW)[0] == 0
+    assert score_job(job("Data Scientist", loc="New York, NY / San Francisco, CA"), profile, now=NOW)[0] == ok
+    soft = {**profile, "location_strict": False}
+    assert ok - score_job(job("Data Scientist", loc="Austin, TX"), soft, now=NOW)[0] == 15
 
 
 def test_company_fit(profile):
