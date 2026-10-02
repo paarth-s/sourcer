@@ -31,6 +31,8 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--questions", help="file of application questions, blank-line separated")
     a.add_argument("--variant", choices=["ds", "mle", "product"], help="force a base resume")
 
+    sub.add_parser("selftest", help="live check of every source, scoring and tailoring")
+
     rv = sub.add_parser("resume", help="render a base resume variant (sanity-check the bank)")
     rv.add_argument("--variant", choices=["ds", "mle", "product"], default="ds")
 
@@ -79,6 +81,10 @@ def main(argv: list[str] | None = None) -> int:
         for j in jobs[:20]:
             print(f"  - {j.title} ({j.location})")
         return 0
+
+    if args.cmd == "selftest":
+        from .selftest import run as selftest
+        return selftest(cfg)
 
     if args.cmd in ("apply", "resume"):
         from .resume import Bank

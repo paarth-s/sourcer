@@ -1,0 +1,28 @@
+name: selftest
+
+# Live smoke test: hits every source, scores real postings, and (if ANTHROPIC_API_KEY
+# is set) tailors the *fictional* fixture resume. Prints only public data.
+on:
+  push:
+    branches: ["claude/**"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ".[llm,dev]"
+      - run: pytest -q
+      - name: Live selftest
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: python -m sourcer selftest
