@@ -40,11 +40,17 @@ exclude_titles:
   - sales
   - account executive
   - marketing manager
-  - director of
+  - director
+  - manager
   - vp
   - vice president
   - head of people
   - phd residency
+
+# Senior-but-reachable: shown, but scored down 10 and labeled "stretch level".
+stretch_titles:
+  - principal
+  - distinguished
 
 # Seniority you'd consider. Postings with these words get a small bonus (+5).
 seniority_bonus:
@@ -120,6 +126,32 @@ exclude_locations:
   - poland
   - india
   - bangalore
+  - bengaluru
+  - gurugram
+  - gurgaon
+  - hyderabad
+  - pune
+  - chennai
+  - mexico
+  - brazil
+  - sao paulo
+  - argentina
+  - spain
+  - madrid
+  - barcelona
+  - netherlands
+  - amsterdam
+  - ireland
+  - dublin
+  - portugal
+  - lisbon
+  - japan
+  - tokyo
+  - china
+  - hong kong
+  - korea
+  - philippines
+  - vietnam
   - apac
   - latam
   - canada only

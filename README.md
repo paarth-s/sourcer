@@ -3,10 +3,12 @@
 Finds data science / ML roles that fit your background **as they go live, or before
 they exist**, and points you to the people to contact.
 
-It runs every 3 hours on GitHub Actions and sends you a digest with three parts:
+Every morning at about 7 AM Pacific, a GitHub Actions job scans the sources below and
+emails you a digest with three parts:
 
 1. **New roles, apply early.** Matching postings pulled straight from company job
-   boards (Greenhouse, Lever, Ashby, Workable) within hours of publication. Job
+   boards (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable), usually
+   within a day of publication. Job
    aggregators and LinkedIn usually pick these up days later. Each role shows the
    connections you have there, so you can ask for a referral.
 2. **Reach out before the role exists.** Recently funded companies that fit your
@@ -26,8 +28,9 @@ It runs every 3 hours on GitHub Actions and sends you a digest with three parts:
 | Signal | Source | Why it's early |
 |---|---|---|
 | Funding announcements | Google News RSS searches built around your verticals and ML areas, plus TechCrunch, Crunchbase News, FinSMEs and PR Newswire | Companies usually hire 0–3 months after a raise |
-| Stealth raises | SEC Form D filings (EDGAR full-text search) | Filed within 15 days of the first sale, often **before** the press release |
-| Job postings | Public Greenhouse / Lever / Ashby / Workable APIs | Postings appear here first, the moment they go live |
+| Job postings | Public Greenhouse / Lever / Ashby / SmartRecruiters / Workable APIs, and Workday search for large companies (Zillow, Expedia, Redfin, Priceline...) | Postings appear here first, the moment they go live |
+| Hiring startups | Y Combinator's public list of hiring companies, filtered by your verticals and ML areas | Startups that never make the funding news |
+| Stealth raises (optional) | SEC Form D filings, opt-in via `SEC_USER_AGENT` | Filed within 15 days of a round, often **before** the press release |
 | Startup roles | HN "Who is hiring?" (monthly) | Founders post directly |
 | Warm paths | Your LinkedIn connections export | Gives you a referral path at every company where you know someone |
 
@@ -55,24 +58,33 @@ against your summary and drafts outreach notes for the top 5 leads.
    base64 -i Connections.csv | gh secret set LINKEDIN_CONNECTIONS_B64
    ```
    Re-export monthly. **Never commit this file.** (`data/*.csv` is gitignored.)
-3. **Choose how alerts reach you.** Add any of these as repo secrets
-   (Settings → Secrets and variables → Actions):
-   - Email: `SMTP_HOST` (e.g. `smtp.gmail.com`), `SMTP_PORT` (587), `SMTP_USER`,
-     `SMTP_PASSWORD` (for Gmail, an [app password](https://myaccount.google.com/apppasswords)),
-     `DIGEST_EMAIL_TO`
-   - Phone push: `NTFY_TOPIC`. Pick a long random topic name and subscribe to it in the [ntfy](https://ntfy.sh) app
-   - Slack: `SLACK_WEBHOOK_URL`
-4. **Required for SEC data:** `SEC_USER_AGENT`, e.g. `Your Name you@example.com`.
-   SEC's fair-access policy requires a contact string.
+3. **Set up the daily email** (about 3 minutes). Add these repo secrets under
+   Settings → Secrets and variables → Actions:
+   - `DIGEST_EMAIL_TO`: the address the digest goes to.
+   - `RESEND_API_KEY`: sign up at [resend.com](https://resend.com) **using that same
+     address**, then go to API Keys → Create. On the free tier, Resend can send to its
+     account owner without any domain setup.
+
+   Alternatively, use SMTP: set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` and
+   `SMTP_PASSWORD`, e.g. a Gmail account with an
+   [app password](https://myaccount.google.com/apppasswords).
+
+   To check delivery, go to Actions → *sourcer* → Run workflow → mode `test-email`.
+   - Optional extras: `NTFY_TOPIC` for phone push (pick a long random topic and
+     subscribe in the [ntfy](https://ntfy.sh) app), `SLACK_WEBHOOK_URL`.
+4. **Optional SEC data:** `SEC_USER_AGENT`, e.g. `Your Name you@example.com`. SEC
+   requires a contact email to read filings.
 5. **For Claude re-ranking, outreach drafts and application packets:**
    `ANTHROPIC_API_KEY`. Only the top candidates are sent, so each run costs cents,
    plus roughly $0.10–0.30 per packet. For packets in scheduled runs, also add
    `RESUME_YAML_B64` and `ANSWERS_YAML_B64`:
    `base64 -i private/resume.yaml | gh secret set RESUME_YAML_B64`, and the same
    for answers.
-6. Actions tab → *sourcer* → **Run workflow** to start the first run. The first run
-   discovers boards and records a baseline. It only alerts on postings from the last
-   14 days, so you don't get flooded.
+6. To send a digest now, go to Actions → *sourcer* → **Run workflow** (mode `daily`).
+   The first run discovers job boards and records a baseline. It only includes
+   postings from the last 14 days, so you don't get flooded. After that, the email
+   arrives on its own every morning. On quiet days it says "nothing new" so you know
+   it ran. If delivery breaks, the run fails and GitHub emails you about the failure.
 
 ### Run locally
 
@@ -81,7 +93,8 @@ pip install -e ".[llm,dev]"
 cp ~/Downloads/Connections.csv data/
 python -m sourcer network               # where your network is concentrated
 python -m sourcer probe "Some Startup"  # find a company's job board
-python -m sourcer run --no-send -v      # full run; report in reports/latest.md
+python -m sourcer run --no-send -v      # full run; reports/latest.md + reports/latest-email.html
+python -m sourcer test-email            # check email delivery
 pytest
 ```
 
@@ -147,10 +160,11 @@ uses about 2–4 minutes, well inside the free private-repo Actions quota.
   and scraping LinkedIn breaks its terms and gets accounts restricted. For mutual
   connections, use the 2nd-degree search links in each lead, or add people to
   `warm_contacts` in `profile.yaml`.
-- **Board discovery** guesses slugs from the company name. If a company uses
-  Workday, its own careers site, or an unusual slug, add `ats` + `slug` to
-  `watchlist.yaml` by hand.
+- **Board discovery** guesses slugs from the company name. For Workday companies, add
+  the careers URL (`workday: https://<co>.wd5.myworkdayjobs.com/<site>`) to
+  `watchlist.yaml`. Companies on fully custom career sites (United, FLYR, Fetcherr)
+  can't be scanned and are listed in the watchlist as ones to check by hand.
 - **Headline parsing** is regex-based and misses some phrasings. Each company only
   needs one outlet's phrasing to match.
-- Possible additions: YC's company directory, Wellfound, and an investor-portfolio
-  watch (new companies added to a16z, Sequoia or other funds' portfolio pages).
+- Possible additions: Wellfound, and an investor-portfolio watch (new companies added
+  to a16z, Sequoia or other funds' portfolio pages).

@@ -38,6 +38,11 @@ edgar:
   # Without it, only filer names/locations are used. Read from SEC_USER_AGENT.
   user_agent: "sourcer job-search bot (set SEC_USER_AGENT)"
 
+# --- Y Combinator companies currently hiring -----------------------------------
+# Filtered by your profile's verticals / ML areas; their job boards get scanned.
+yc:
+  enabled: true
+
 # --- Hacker News "Who is hiring?" ---------------------------------------------
 hn_whos_hiring:
   enabled: true
@@ -46,7 +51,7 @@ hn_whos_hiring:
 # Every company in watchlist.yaml, every company with a LinkedIn connection, and
 # every relevant funded company is probed on these ATSs.
 ats:
-  providers: [greenhouse, lever, ashby, workable]
+  providers: [greenhouse, lever, ashby, smartrecruiters, workable]
   # Don't re-probe a company whose ATS wasn't found for this many days.
   reprobe_after_days: 7
   # Cap on new companies probed per run (each probe is ~4-24 HTTP requests).

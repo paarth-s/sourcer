@@ -1,25 +1,53 @@
 # Companies to poll every run, regardless of funding news or connections.
-# `ats` / `slug` are optional - if omitted, sourcer probes Greenhouse, Lever,
-# Ashby and Workable using slugs guessed from the name.
 #
-# Funded companies and LinkedIn-connection companies are added automatically;
-# this file is for companies you already know you care about.
+#   ats/slug  - Greenhouse, Lever, Ashby, SmartRecruiters or Workable board (optional:
+#               if omitted, sourcer guesses slugs from the name)
+#   workday   - the company's Workday careers URL (most large companies)
+#   note      - context shown next to this company's roles in the email
+#
+# Funded companies, YC startups and LinkedIn-connection companies are added
+# automatically; this file is for companies you already know you care about.
 
 companies:
-  - name: Hopper
-  - name: Navan
+  # --- Travel / airlines -------------------------------------------------------
   - name: Airbnb
     ats: greenhouse
     slug: airbnb
-  - name: Zillow
-  - name: Opendoor
-  - name: Redfin
-  - name: Expedia
-  - name: Booking.com
-  - name: FLYR
-  - name: PROS
-  - name: Fetcherr
-  - name: EliseAI
-  - name: Roofstock
-  - name: Pacaso
+  - name: Expedia Group
+    workday: https://expedia.wd108.myworkdayjobs.com/search
+  - name: Priceline
+    workday: https://priceline.wd1.myworkdayjobs.com/Priceline
+  - name: Booking Holdings
+    workday: https://priceline.wd1.myworkdayjobs.com/BookingHoldings
+  - name: Hopper
+    ats: ashby
+    slug: hopper
+  - name: Navan
+    ats: greenhouse
+    slug: tripactions
   - name: Duffel
+    ats: lever
+    slug: duffel
+  - name: PROS
+    workday: https://pros.wd5.myworkdayjobs.com/PROS_Careers
+    note: Pricing & revenue-management software (airlines, B2B)
+  # Not scannable automatically (proprietary career sites) - check by hand:
+  #   United Airlines  https://careers.united.com
+  #   FLYR             https://flyr.com/careers   (airline revenue management)
+  #   Fetcherr         https://www.fetcherr.io/career  (airline dynamic pricing)
+
+  # --- Real estate / proptech --------------------------------------------------
+  - name: Zillow
+    workday: https://zillow.wd5.myworkdayjobs.com/Zillow_Group_External
+  - name: Redfin
+    workday: https://redfin.wd1.myworkdayjobs.com/redfin_careers
+  - name: EliseAI
+    ats: ashby
+    slug: eliseai
+  - name: Roofstock
+    ats: greenhouse
+    slug: roofstock
+  - name: Pacaso
+    ats: greenhouse
+    slug: pacaso
+  - name: Opendoor     # left Greenhouse; re-probed weekly

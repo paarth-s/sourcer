@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS funding (
 );
 CREATE INDEX IF NOT EXISTS funding_company ON funding(company_key);
 
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+
 CREATE TABLE IF NOT EXISTS leads (
     company_key TEXT PRIMARY KEY,
     first_alerted TEXT
@@ -53,6 +55,9 @@ class Store:
         self.conn = sqlite3.connect(str(path))
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(companies)")}
+        if "note" not in cols:  # context shown in the digest, e.g. a YC one-liner
+            self.conn.execute("ALTER TABLE companies ADD COLUMN note TEXT")
 
     def close(self) -> None:
         self.conn.commit()
@@ -95,19 +100,23 @@ class Store:
 
     def upsert_company(self, key: str, name: str, origin: str,
                        ats: str | None = None, slug: str | None = None,
-                       probed: bool = False) -> None:
+                       probed: bool = False, note: str | None = None) -> None:
         row = self.get_company(key)
         if row is None:
             self.conn.execute(
-                "INSERT INTO companies (key, name, ats, slug, probed_at, origin) VALUES (?,?,?,?,?,?)",
-                (key, name, ats, slug, _now() if probed else None, origin),
+                "INSERT INTO companies (key, name, ats, slug, probed_at, origin, note) VALUES (?,?,?,?,?,?,?)",
+                (key, name, ats, slug, _now() if probed else None, origin, note),
             )
             return
         self.conn.execute(
             "UPDATE companies SET ats=COALESCE(?, ats), slug=COALESCE(?, slug),"
-            " probed_at=COALESCE(?, probed_at) WHERE key=?",
-            (ats, slug, _now() if probed else None, key),
+            " probed_at=COALESCE(?, probed_at), note=COALESCE(?, note) WHERE key=?",
+            (ats, slug, _now() if probed else None, note, key),
         )
+
+    def notes(self) -> dict[str, str]:
+        return {r["key"]: r["note"] for r in self.conn.execute(
+            "SELECT key, note FROM companies WHERE note IS NOT NULL")}
 
     def needs_probe(self, key: str, reprobe_after_days: int) -> bool:
         row = self.get_company(key)
@@ -151,3 +160,12 @@ class Store:
 
     def mark_lead(self, company_key: str) -> None:
         self.conn.execute("INSERT OR IGNORE INTO leads VALUES (?, ?)", (company_key, _now()))
+
+    # --- meta -------------------------------------------------------------------
+    def get_meta(self, key: str) -> str | None:
+        row = self.conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return row["value"] if row else None
+
+    def set_meta(self, key: str, value: str) -> None:
+        self.conn.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)", (key, value))
+        self.conn.commit()

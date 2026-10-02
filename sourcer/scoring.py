@@ -91,9 +91,11 @@ def score_job(job: Job, profile: dict, *, n_connections: int = 0,
         score += 5
 
     if location_excluded(job.location, profile, job.title):
-        score -= 30
-        reasons.append(f"location: {job.location}")
-    elif not location_ok(job.location, profile):
+        return 0.0, []  # role is in a region you can't work in
+    if _hits(job.title.lower(), profile.get("stretch_titles", [])):
+        score -= 10
+        reasons.append("stretch level")
+    if not location_ok(job.location, profile):
         score -= 15
         reasons.append(f"location: {job.location}")
 

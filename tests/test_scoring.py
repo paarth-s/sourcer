@@ -36,6 +36,7 @@ def test_location_penalty(profile):
     ok, _ = score_job(job("Data Scientist", loc="New York, NY"), profile, now=NOW)
     far, _ = score_job(job("Data Scientist", loc="Austin, TX"), profile, now=NOW)
     assert ok - far == 15
+    assert score_job(job("Data Scientist", loc="Bengaluru"), profile, now=NOW)[0] == 0
 
 
 def test_company_fit(profile):
@@ -54,7 +55,10 @@ def test_foreign_remote_penalized(profile):
     emea, _ = score_job(job("Senior ML Engineer, Voice Agents - EMEA Remote", loc="Paris, France (Remote)"),
                         profile, now=NOW)
     pl, _ = score_job(job("Senior Data Scientist", loc="Remote (Poland) or Cracow"), profile, now=NOW)
-    assert us >= profile["alert_threshold"] > emea and pl < profile["alert_threshold"]
+    assert us >= profile["alert_threshold"] and emea == 0 and pl == 0
+    assert score_job(job("Director, Data Science"), profile, now=NOW)[0] == 0
+    p, why = score_job(job("Principal Data Scientist"), profile, now=NOW)
+    assert "stretch level" in why
 
 
 def test_company_fit_without_named_round(profile):

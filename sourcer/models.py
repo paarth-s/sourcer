@@ -86,6 +86,7 @@ class ScoredJob:
     funding: FundingEvent | None = None
     llm_note: str = ""
     packet: str = ""          # path to a prepared application packet, if any
+    context: str = ""         # what the company does (YC one-liner etc.)
 
 
 @dataclass

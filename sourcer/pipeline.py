@@ -16,6 +16,8 @@ from .sources import ats as ats_mod
 from .sources.edgar import fetch_form_d
 from .sources.funding import fetch_funding
 from .sources.hn import fetch_hn_jobs
+from .sources import workday
+from .sources.yc import fetch_yc
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +31,8 @@ class RunResult:
     leads: list[OutreachLead] = field(default_factory=list)
     funding_seen: list[FundingEvent] = field(default_factory=list)
     packets: list[str] = field(default_factory=list)
+    yc_matches: int = 0
+    roles_scanned: int = 0
     boards_polled: int = 0
     boards_discovered: int = 0
     network_size: int = 0
@@ -36,25 +40,34 @@ class RunResult:
 
 
 def _register_companies(cfg: Config, store: Store, network: Network,
-                        funded: list[FundingEvent]) -> list[tuple[str, str, str]]:
+                        funded: list[FundingEvent], yc: list[dict] | None = None
+                        ) -> list[tuple[str, str, str]]:
     """Record every company we should watch. Returns (key, name, origin) needing ATS discovery,
     in priority order."""
     to_probe: list[tuple[str, str, str]] = []
     reprobe = cfg.sources.get("ats", {}).get("reprobe_after_days", 7)
 
-    def add(name: str, origin: str, ats: str | None = None, slug: str | None = None):
+    def add(name: str, origin: str, ats: str | None = None, slug: str | None = None,
+            note: str | None = None):
         key = normalize_company(name)
         if not key:
             return
         if ats and slug:
-            store.upsert_company(key, name, origin, ats=ats, slug=slug)
+            store.upsert_company(key, name, origin, ats=ats, slug=slug, note=note)
             return
+        if note:
+            store.upsert_company(key, name, origin, note=note)
         if store.needs_probe(key, reprobe):
             store.upsert_company(key, name, origin)
             to_probe.append((key, name, origin))
 
     for c in cfg.watchlist:
-        add(c["name"], "watchlist", c.get("ats"), c.get("slug"))
+        if c.get("workday"):
+            add(c["name"], "watchlist", "workday", c["workday"], c.get("note"))
+        else:
+            add(c["name"], "watchlist", c.get("ats"), c.get("slug"), c.get("note"))
+    for c in yc or []:
+        add(c["name"], "yc", note=f"YC {c['batch']}: {c['one_liner']}".strip())
     for ev in funded:
         add(ev.company, "edgar" if ev.source == "sec-form-d" else "funding")
     for _key, name in network.companies().items():
@@ -78,6 +91,8 @@ def run(cfg: Config, *, skip_network_fetch: bool = False) -> RunResult:
         tracked = ([c["name"] for c in cfg.watchlist] + list(network.companies().values())
                    + [e.company for e in events])
         events += fetch_form_d(cfg.sources.get("edgar", {}), tracked)
+    yc = fetch_yc(profile) if not skip_network_fetch and cfg.sources.get("yc", {}).get("enabled", True) else []
+    res.yc_matches = len(yc)
     relevant_funded = []
     for ev in events:
         store.add_funding(ev)
@@ -95,8 +110,8 @@ def run(cfg: Config, *, skip_network_fetch: bool = False) -> RunResult:
     ats_cfg = cfg.sources.get("ats", {})
     providers = ats_cfg.get("providers", list(ats_mod.PROVIDERS))
     max_probes = ats_cfg.get("max_probes_per_run", 80)
-    to_probe = _register_companies(cfg, store, network, relevant_funded)
-    order = {"watchlist": 0, "funding": 1, "connection": 2, "edgar": 3}
+    to_probe = _register_companies(cfg, store, network, relevant_funded, yc)
+    order = {"watchlist": 0, "funding": 1, "connection": 2, "yc": 3, "edgar": 4}
     to_probe.sort(key=lambda t: order.get(t[2], 9))
     for key, name, _origin in ([] if skip_network_fetch else to_probe[:max_probes]):
         found = ats_mod.discover_board(s, name, providers)
@@ -111,8 +126,14 @@ def run(cfg: Config, *, skip_network_fetch: bool = False) -> RunResult:
     # 3. Poll boards + HN --------------------------------------------------------
     all_jobs: list[Job] = []
     if not skip_network_fetch:
+        def wanted(title: str) -> bool:
+            return title_match(title, profile)[0] > 0 or is_adjacent(title)
+
         for row in store.boards():
-            jobs = ats_mod.fetch_board(s, row["ats"], row["slug"], row["name"])
+            if row["ats"] == "workday":
+                jobs = workday.fetch_jobs(s, row["slug"], row["name"], wanted)
+            else:
+                jobs = ats_mod.fetch_board(s, row["ats"], row["slug"], row["name"])
             if jobs is None:
                 res.errors.append(f"{row['name']}: {row['ats']}/{row['slug']} board unavailable")
                 continue
@@ -120,8 +141,12 @@ def run(cfg: Config, *, skip_network_fetch: bool = False) -> RunResult:
             all_jobs += jobs
         all_jobs += fetch_hn_jobs(cfg.sources.get("hn_whos_hiring", {}))
 
+    res.roles_scanned = len(all_jobs)
     res.new_jobs, open_by_company = score_and_store(
         all_jobs, store, network, funding_by_key, profile, first_run=first_run, now=now)
+    notes = store.notes()
+    for sj in res.new_jobs:
+        sj.context = notes.get(sj.job.company_key, "")
 
     # 4. Pre-emptive outreach leads -------------------------------------------------
     res.leads = build_leads(funding_by_key, open_by_company, network, store, profile, now=now)

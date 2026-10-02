@@ -1,10 +1,19 @@
 name: sourcer
 
+# Daily digest email at ~7am America/Los_Angeles.
+# GitHub cron is UTC-only, so it fires at 13:45 and 14:45 UTC (6:45 PDT / 6:45 PST);
+# `run --daily` sends once per local day and skips the run that lands before 6am.
 on:
   schedule:
-    # Every 3 hours. New ATS postings are caught within ~3h of going live.
-    - cron: "17 */3 * * *"
-  workflow_dispatch: {}
+    - cron: "45 13 * * *"
+    - cron: "45 14 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "daily = full run + email now; test-email = just check delivery"
+        type: choice
+        options: [daily, test-email]
+        default: daily
 
 concurrency:
   group: sourcer
@@ -17,6 +26,15 @@ jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Email delivery (README > Daily email). Resend is simplest; SMTP also works.
+      DIGEST_EMAIL_TO: ${{ secrets.DIGEST_EMAIL_TO }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,53 +45,51 @@ jobs:
 
       - run: pip install ".[llm]"
 
-      # State (seen jobs, discovered boards) persists between runs in the Actions cache.
+      - name: Test email delivery
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'test-email'
+        run: python -m sourcer test-email
+
+      # State (seen jobs, discovered boards, last email date) persists in the Actions cache.
       - name: Restore state
+        if: github.event_name == 'schedule' || inputs.mode == 'daily'
         uses: actions/cache/restore@v4
         with:
           path: data/sourcer.db
           key: sourcer-db-${{ github.run_id }}
           restore-keys: sourcer-db-
 
-      # Your LinkedIn export lives in a secret, never in the repo:
-      #   base64 -i Connections.csv | gh secret set LINKEDIN_CONNECTIONS_B64
-      - name: Load LinkedIn connections
+      # Private inputs live in secrets, never in this (public) repo:
+      #   base64 -i Connections.csv      | gh secret set LINKEDIN_CONNECTIONS_B64
+      #   base64 -i private/resume.yaml  | gh secret set RESUME_YAML_B64
+      #   base64 -i private/answers.yaml | gh secret set ANSWERS_YAML_B64
+      - name: Load private inputs
+        if: github.event_name == 'schedule' || inputs.mode == 'daily'
         env:
           CONNECTIONS_B64: ${{ secrets.LINKEDIN_CONNECTIONS_B64 }}
-        run: |
-          if [ -n "$CONNECTIONS_B64" ]; then
-            echo "$CONNECTIONS_B64" | base64 -d > data/Connections.csv
-          fi
-
-      # Resume bank + application facts, for auto-prepared application packets:
-      #   base64 -i private/resume.yaml | gh secret set RESUME_YAML_B64
-      #   base64 -i private/answers.yaml | gh secret set ANSWERS_YAML_B64
-      - name: Load resume bank
-        env:
           RESUME_B64: ${{ secrets.RESUME_YAML_B64 }}
           ANSWERS_B64: ${{ secrets.ANSWERS_YAML_B64 }}
         run: |
-          mkdir -p private
+          mkdir -p data private
+          if [ -n "$CONNECTIONS_B64" ]; then echo "$CONNECTIONS_B64" | base64 -d > data/Connections.csv; fi
           if [ -n "$RESUME_B64" ]; then echo "$RESUME_B64" | base64 -d > private/resume.yaml; fi
           if [ -n "$ANSWERS_B64" ]; then echo "$ANSWERS_B64" | base64 -d > private/answers.yaml; fi
 
-      # Output is kept out of the (public) Actions log: only counts are printed.
-      - name: Run
+      # Only counts are printed: this repo's Actions logs are public.
+      - name: Run and email
+        if: github.event_name == 'schedule' || inputs.mode == 'daily'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SMTP_FROM: ${{ secrets.SMTP_FROM }}
-          DIGEST_EMAIL_TO: ${{ secrets.DIGEST_EMAIL_TO }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-        run: python -m sourcer run 2> data/run.log
+        run: python -m sourcer run --daily ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }} 2> data/run.log
+
+      - name: Show errors
+        if: failure()
+        run: grep -E "ERROR|Traceback|Error:" data/run.log | tail -20 || true
 
       - name: Save state
-        if: always()
+        if: always() && (github.event_name == 'schedule' || inputs.mode == 'daily')
         uses: actions/cache/save@v4
         with:
           path: data/sourcer.db

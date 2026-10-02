@@ -17,6 +17,11 @@ def main(argv: list[str] | None = None) -> int:
 
     r = sub.add_parser("run", help="gather signals, poll boards, write + send the digest")
     r.add_argument("--no-send", action="store_true", help="write the report but don't notify")
+    r.add_argument("--daily", action="store_true",
+                   help="scheduled mode: run + email once per day, from 6am America/Los_Angeles")
+    r.add_argument("--force", action="store_true", help="with --daily: send even if already sent today")
+
+    sub.add_parser("test-email", help="send a short test email to confirm delivery is configured")
 
     sub.add_parser("network", help="summarize your LinkedIn export (top companies)")
 
@@ -42,19 +47,57 @@ def main(argv: list[str] | None = None) -> int:
     cfg = load_config(args.root)
     os.environ.setdefault("SOURCER_RESUME", str(cfg.resume_path))
 
+    if args.cmd == "test-email":
+        from .notify import email_configured, send_resend, send_smtp
+        if not email_configured():
+            print("Email not configured: set DIGEST_EMAIL_TO plus RESEND_API_KEY (or SMTP_HOST/USER/PASSWORD).")
+            return 1
+        subject = "Sourcer test email - delivery works"
+        body = ("<p>If you can read this, Sourcer can email you. Your daily digest arrives around "
+                "7&nbsp;AM Pacific.</p>")
+        for fn in (send_resend, send_smtp):
+            try:
+                if fn(subject, body, "Sourcer can email you."):
+                    print(f"sent via {fn.__name__}")
+                    return 0
+            except Exception as e:  # noqa: BLE001
+                print(f"{fn.__name__} failed: {e}")
+        return 1
+
     if args.cmd == "run":
+        from zoneinfo import ZoneInfo
+
+        from .db import Store
         from .digest import render
+        from .email_html import render_email
         from .notify import deliver
         from .pipeline import run
+        local = datetime.now(ZoneInfo("America/Los_Angeles"))
+        today = f"{local:%Y-%m-%d}"
+        if args.daily and not args.force:
+            store = Store(cfg.db_path)
+            already = store.get_meta("last_daily_email") == today
+            store.close()
+            if already or local.hour < 6:
+                print(f"daily: skipping ({'already sent today' if already else f'{local:%H:%M} PT is before 6am'})")
+                return 0
         res = run(cfg)
         md = render(res)
         cfg.reports_dir.mkdir(exist_ok=True)
         path = cfg.reports_dir / f"{datetime.now(timezone.utc):%Y-%m-%d-%H%M}.md"
         path.write_text(md)
         (cfg.reports_dir / "latest.md").write_text(md)
-        sent = [] if args.no_send else deliver(res, md)
-        print(f"{len(res.new_jobs)} new roles, {len(res.leads)} leads -> {path}"
-              + (f" (sent: {', '.join(sent)})" if sent else ""))
+        (cfg.reports_dir / "latest-email.html").write_text(render_email(res)[1])
+        sent = [] if args.no_send else deliver(res, md, always_email=args.daily)
+        if args.daily and "email" in sent:
+            store = Store(cfg.db_path)
+            store.set_meta("last_daily_email", today)
+            store.close()
+        print(f"{len(res.new_jobs)} new roles, {len(res.leads)} leads, {res.roles_scanned} roles scanned"
+              + (f" (sent: {', '.join(sent)})" if sent else " (not sent)"))
+        if args.daily and "email" not in sent:
+            print("daily: email was NOT sent - check RESEND_API_KEY / DIGEST_EMAIL_TO secrets")
+            return 1
         return 0
 
     if args.cmd == "network":

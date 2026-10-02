@@ -119,11 +119,34 @@ def parse_workable(data: dict, company: str) -> list[Job]:
     return jobs
 
 
+def smartrecruiters_url(slug: str) -> str:
+    return f"https://api.smartrecruiters.com/v1/companies/{slug}/postings?limit=100"
+
+
+def parse_smartrecruiters(data: dict, company: str) -> list[Job]:
+    jobs = []
+    for j in data.get("content", []):
+        loc = j.get("location") or {}
+        where = ", ".join(x for x in (loc.get("city"), loc.get("region"), loc.get("country")) if x)
+        if loc.get("remote"):
+            where = f"{where} (Remote)".strip()
+        jobs.append(Job(
+            company=company, title=j.get("name", ""),
+            url=f"https://jobs.smartrecruiters.com/{(j.get('company') or {}).get('identifier', '')}/{j.get('id')}",
+            source="smartrecruiters", external_id=str(j.get("id")), location=where,
+            description=" ".join(filter(None, [(j.get("department") or {}).get("label"),
+                                               (j.get("function") or {}).get("label")])),
+            posted_at=_dt(j.get("releasedDate")),
+        ))
+    return jobs
+
+
 PROVIDERS = {
     "greenhouse": (greenhouse_url, parse_greenhouse, "jobs"),
     "lever": (lever_url, parse_lever, None),
     "ashby": (ashby_url, parse_ashby, "jobs"),
     "workable": (workable_url, parse_workable, "jobs"),
+    "smartrecruiters": (smartrecruiters_url, parse_smartrecruiters, "content"),
 }
 
 
@@ -179,6 +202,8 @@ def discover_board(s: requests.Session, name: str, providers: list[str]) -> tupl
     for slug in slug_candidates(name):
         for ats in providers:
             jobs = fetch_board(s, ats, slug, name)
+            if ats in ("smartrecruiters", "workable") and not jobs:
+                continue  # these answer 200/empty for any unknown company name
             if jobs is not None:
                 log.info("found %s board for %s at slug %r (%d jobs)", ats, name, slug, len(jobs))
                 return ats, slug, jobs

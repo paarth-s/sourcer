@@ -40,6 +40,7 @@ def _setup(tmp_path, fixture, monkeypatch):
     monkeypatch.setattr(pipeline, "fetch_funding", lambda cfg: parse_feed(feed, "t"))
     monkeypatch.setattr(pipeline, "fetch_form_d", lambda cfg, names: [])
     monkeypatch.setattr(pipeline, "fetch_hn_jobs", lambda cfg: [])
+    monkeypatch.setattr(pipeline, "fetch_yc", lambda profile: [])
     return load_config(tmp_path), calls
 
 

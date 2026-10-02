@@ -15,28 +15,6 @@ import requests
 log = logging.getLogger(__name__)
 
 
-def _md_to_html(md: str) -> str:
-    """Tiny Markdown -> HTML good enough for an email digest."""
-    out = []
-    for line in md.splitlines():
-        line = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', line)
-        line = re.sub(r"`([^`]+)`", r"<b>[\1]</b>", line)
-        line = re.sub(r"_([^_]+)_$", r"<i>\1</i>", line)
-        if line.startswith("### "):
-            out.append(f"<h3 style='margin:14px 0 2px'>{line[4:]}</h3>")
-        elif line.startswith("## "):
-            out.append(f"<h2 style='border-bottom:1px solid #ddd'>{line[3:]}</h2>")
-        elif line.startswith("# "):
-            out.append(f"<h1>{line[2:]}</h1>")
-        elif line.startswith("- "):
-            out.append(f"<div style='margin-left:12px'>&bull; {line[2:]}</div>")
-        elif line.startswith("> "):
-            out.append(f"<blockquote style='color:#444;border-left:3px solid #ccc;padding-left:8px'>{line[2:]}</blockquote>")
-        elif line.strip():
-            out.append(f"<div>{line}</div>")
-    return "<div style='font-family:sans-serif;max-width:760px'>" + "\n".join(out) + "</div>"
-
-
 def _attachments(packets: list[str]) -> list[tuple[str, bytes]]:
     out = []
     for p in packets:
@@ -46,29 +24,6 @@ def _attachments(packets: list[str]) -> list[tuple[str, bytes]]:
             if f.exists():
                 out.append((f"{d.name}-{name}", f.read_bytes()))
     return out
-
-
-def send_email(subject: str, md: str, packets: list[str] | None = None) -> bool:
-    host, to = os.environ.get("SMTP_HOST"), os.environ.get("DIGEST_EMAIL_TO")
-    if not (host and to):
-        return False
-    user, pw = os.environ.get("SMTP_USER", ""), os.environ.get("SMTP_PASSWORD", "")
-    msg = MIMEMultipart("mixed")
-    msg["Subject"], msg["From"], msg["To"] = subject, os.environ.get("SMTP_FROM", user), to
-    body = MIMEMultipart("alternative")
-    body.attach(MIMEText(md, "plain"))
-    body.attach(MIMEText(_md_to_html(md), "html"))
-    msg.attach(body)
-    for filename, data in _attachments(packets or []):
-        part = MIMEApplication(data, Name=filename)
-        part["Content-Disposition"] = f'attachment; filename="{filename}"'
-        msg.attach(part)
-    with smtplib.SMTP(host, int(os.environ.get("SMTP_PORT", "587")), timeout=30) as s:
-        s.starttls()
-        if user:
-            s.login(user, pw)
-        s.send_message(msg)
-    return True
 
 
 def send_slack(md: str) -> bool:
@@ -91,22 +46,81 @@ def send_push(title: str, body: str) -> bool:
     return True
 
 
-def deliver(res, md: str) -> list[str]:
-    if not res.new_jobs and not res.leads:
-        return []
-    subject = f"Sourcer: {len(res.new_jobs)} new roles, {len(res.leads)} outreach leads"
+def send_resend(subject: str, html_body: str, text: str, packets: list[str] | None = None) -> bool:
+    """Resend (resend.com): free tier, one API key. Without a verified domain it can only
+    send to the address you signed up with - which is exactly the digest use case."""
+    key, to = os.environ.get("RESEND_API_KEY"), os.environ.get("DIGEST_EMAIL_TO")
+    if not (key and to):
+        return False
+    import base64
+    payload = {
+        "from": os.environ.get("DIGEST_EMAIL_FROM", "Sourcer <onboarding@resend.dev>"),
+        "to": [a.strip() for a in to.split(",")], "subject": subject, "html": html_body, "text": text,
+    }
+    att = _attachments(packets or [])
+    if att:
+        payload["attachments"] = [{"filename": n, "content": base64.b64encode(b).decode()} for n, b in att]
+    r = requests.post("https://api.resend.com/emails", json=payload, timeout=30,
+                      headers={"Authorization": f"Bearer {key}"})
+    if not r.ok:
+        raise RuntimeError(f"Resend {r.status_code}: {r.text[:300]}")
+    return True
+
+
+def send_smtp(subject: str, html_body: str, text: str, packets: list[str] | None = None) -> bool:
+    host, to = os.environ.get("SMTP_HOST"), os.environ.get("DIGEST_EMAIL_TO")
+    if not (host and to):
+        return False
+    user, pw = os.environ.get("SMTP_USER", ""), os.environ.get("SMTP_PASSWORD", "")
+    msg = MIMEMultipart("mixed")
+    msg["Subject"], msg["From"], msg["To"] = subject, os.environ.get("SMTP_FROM", user), to
+    body = MIMEMultipart("alternative")
+    body.attach(MIMEText(text, "plain"))
+    body.attach(MIMEText(html_body, "html"))
+    msg.attach(body)
+    for filename, data in _attachments(packets or []):
+        part = MIMEApplication(data, Name=filename)
+        part["Content-Disposition"] = f'attachment; filename="{filename}"'
+        msg.attach(part)
+    with smtplib.SMTP(host, int(os.environ.get("SMTP_PORT", "587")), timeout=30) as s:
+        s.starttls()
+        if user:
+            s.login(user, pw)
+        s.send_message(msg)
+    return True
+
+
+def email_configured() -> bool:
+    return bool(os.environ.get("DIGEST_EMAIL_TO") and
+                (os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")))
+
+
+def deliver(res, md: str, *, always_email: bool = False) -> list[str]:
+    """Email (Resend or SMTP) + optional Slack/push. The daily email goes out even on quiet
+    days (always_email) so you know the system ran."""
+    from .email_html import render_email
     sent = []
-    for name, fn in (("email", lambda: send_email(subject, md, res.packets)), ("slack", lambda: send_slack(md))):
-        try:
-            if fn():
-                sent.append(name)
-        except Exception as e:  # one broken channel shouldn't sink the others
-            log.error("%s delivery failed: %s", name, e)
+    if res.new_jobs or res.leads or always_email:
+        subject, html_body, text = render_email(res)
+        for name, fn in (("email", send_resend), ("email", send_smtp)):
+            try:
+                if fn(subject, html_body, text, res.packets):
+                    sent.append(name)
+                    break
+            except Exception as e:  # noqa: BLE001 - report and try the next channel
+                log.error("%s delivery failed: %s", fn.__name__, e)
+    if not (res.new_jobs or res.leads):
+        return sent
+    try:
+        if send_slack(md):
+            sent.append("slack")
+    except Exception as e:
+        log.error("slack delivery failed: %s", e)
     top = res.new_jobs[:3]
     body = "\n".join(f"{sj.job.title} @ {sj.job.company} ({sj.score:.0f})" for sj in top) or \
         "\n".join(f"Reach out: {l.company}" for l in res.leads[:3])
     try:
-        if send_push(subject, body):
+        if send_push(f"Sourcer: {len(res.new_jobs)} new roles", body):
             sent.append("push")
     except Exception as e:
         log.error("push delivery failed: %s", e)

@@ -122,3 +122,58 @@ def test_real_headlines_from_live_run():
                   "Lobby, Crewfare win People's Choice Awards at the 2026 Global Startup Pitch",
                   "AI Real Estate Firms Keep Reeling in Millions of Dollars - therealdeal.com"):
         assert parse_headline(title) is None, title
+
+
+def test_workday_fetch(monkeypatch):
+    from sourcer.sources import workday
+
+    class Resp:
+        def __init__(self, data, ok=True):
+            self._d, self.ok = data, ok
+
+        def json(self):
+            return self._d
+
+    class S:
+        def post(self, url, json, **kw):
+            assert url == "https://zillow.wd5.myworkdayjobs.com/wday/cxs/zillow/Zillow_Group_External/jobs"
+            return Resp({"total": 2, "jobPostings": [
+                {"title": "Data Scientist", "externalPath": "/job/Remote-USA/DS_P1", "locationsText": "Remote-USA",
+                 "postedOn": "Posted Yesterday"},
+                {"title": "Account Executive", "externalPath": "/job/x/AE_P2", "postedOn": "Posted 30+ Days Ago"}]})
+
+        def get(self, url, **kw):
+            return Resp({"jobPostingInfo": {"title": "Data Scientist", "jobReqId": "P1", "location": "Remote-USA",
+                                            "startDate": "2026-10-01", "jobDescription": "<p>Pricing models</p>",
+                                            "externalUrl": "https://zillow.wd5.myworkdayjobs.com/x/job/DS_P1"}})
+
+    assert workday.parse_url("https://zillow.wd5.myworkdayjobs.com/en-US/Zillow_Group_External") == \
+        ("zillow.wd5.myworkdayjobs.com", "zillow", "Zillow_Group_External")
+    jobs = workday.fetch_jobs(S(), "https://zillow.wd5.myworkdayjobs.com/Zillow_Group_External", "Zillow",
+                              lambda t: "Data" in t, searches=["data scientist"])
+    assert len(jobs) == 1
+    j = jobs[0]
+    assert j.description == "Pricing models" and j.posted_at.day == 1 and j.uid == "workday:zillow:P1"
+
+
+def test_yc_filter(profile):
+    from sourcer.sources.yc import matching_companies
+    data = [
+        {"name": "RentWise", "status": "Active", "isHiring": True, "regions": ["United States of America"],
+         "one_liner": "Dynamic pricing for rental properties", "long_description": "", "tags": ["Proptech"],
+         "batch": "Summer 2025"},
+        {"name": "EuroCo", "status": "Active", "isHiring": True, "regions": ["Europe"],
+         "one_liner": "Hotel pricing", "tags": [], "batch": "W24"},
+        {"name": "DevTool", "status": "Active", "isHiring": True, "regions": ["Remote"],
+         "one_liner": "CI for monorepos", "tags": ["Developer Tools"], "batch": "W24"},
+    ]
+    got = matching_companies(data, profile)
+    assert [c["name"] for c in got] == ["RentWise"] and "pricing" in got[0]["matched"]
+
+
+def test_smartrecruiters_parse():
+    jobs = ats.parse_smartrecruiters({"content": [{"id": "7", "name": " Data Scientist ", "releasedDate": "2026-10-01T00:00:00Z",
+                                                   "location": {"city": "Austin", "country": "us", "remote": True},
+                                                   "company": {"identifier": "Acme"}}]}, "Acme")
+    assert jobs[0].title == "Data Scientist" and "(Remote)" in jobs[0].location
+    assert jobs[0].url == "https://jobs.smartrecruiters.com/Acme/7"
