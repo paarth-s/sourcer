@@ -1,0 +1,50 @@
+# Where sourcer looks. All sources are free/public endpoints.
+
+# --- Funding news (RSS) -------------------------------------------------------
+# Google News RSS search queries. Each becomes
+# https://news.google.com/rss/search?q=<query>&hl=en-US&gl=US&ceid=US:en
+# "when:3d" keeps results fresh.
+google_news_queries:
+  - '"raises" "Series A" (pricing OR personalization OR recommendation) when:3d'
+  - '"raises" seed (pricing OR "revenue management") startup when:3d'
+  - '"raises" (proptech OR "real estate" ) AI startup when:3d'
+  - '"raises" (travel OR airline OR hospitality) startup when:3d'
+  - '"raises" "Series B" (marketplace OR personalization) when:3d'
+  - '"funding round" (proptech OR traveltech) when:3d'
+
+rss_feeds:
+  - https://techcrunch.com/category/venture/feed/
+  - https://news.crunchbase.com/feed/
+  - https://www.finsmes.com/feed
+  - https://www.prnewswire.com/rss/financial-services-latest-news/venture-capital-list.rss
+
+# --- SEC Form D (often filed before the raise is announced) -------------------
+edgar:
+  enabled: true
+  lookback_days: 14
+  # Full-text search terms over recent Form D filings (matches entity names etc.)
+  keywords:
+    - pricing
+    - travel
+    - realty
+    - proptech
+    - personaliz
+    - recommend
+  # Required by SEC fair-access policy: "Name contact@example.com".
+  # Read from the SEC_USER_AGENT env var if set.
+  user_agent: "sourcer job-search bot (set SEC_USER_AGENT)"
+
+# --- Hacker News "Who is hiring?" ---------------------------------------------
+hn_whos_hiring:
+  enabled: true
+
+# --- ATS boards ---------------------------------------------------------------
+# Every company in watchlist.yaml, every company with a LinkedIn connection, and
+# every relevant funded company is probed on these ATSs.
+ats:
+  providers: [greenhouse, lever, ashby, workable]
+  # Don't re-probe a company whose ATS wasn't found for this many days.
+  reprobe_after_days: 7
+  # Cap on new companies probed per run (each probe is ~4-24 HTTP requests).
+  # Priority: watchlist > funded companies > companies where you have connections.
+  max_probes_per_run: 80

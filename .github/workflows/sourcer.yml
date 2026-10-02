@@ -1,0 +1,68 @@
+name: sourcer
+
+on:
+  schedule:
+    # Every 3 hours. New ATS postings are caught within ~3h of going live.
+    - cron: "17 */3 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: sourcer
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install ".[llm]"
+
+      # State (seen jobs, discovered boards) persists between runs in the Actions cache.
+      - name: Restore state
+        uses: actions/cache/restore@v4
+        with:
+          path: data/sourcer.db
+          key: sourcer-db-${{ github.run_id }}
+          restore-keys: sourcer-db-
+
+      # Your LinkedIn export lives in a secret, never in the repo:
+      #   base64 -i Connections.csv | gh secret set LINKEDIN_CONNECTIONS_B64
+      - name: Load LinkedIn connections
+        env:
+          CONNECTIONS_B64: ${{ secrets.LINKEDIN_CONNECTIONS_B64 }}
+        run: |
+          if [ -n "$CONNECTIONS_B64" ]; then
+            echo "$CONNECTIONS_B64" | base64 -d > data/Connections.csv
+          fi
+
+      # Output is kept out of the (public) Actions log: only counts are printed.
+      - name: Run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          DIGEST_EMAIL_TO: ${{ secrets.DIGEST_EMAIL_TO }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python -m sourcer run 2> data/run.log
+
+      - name: Save state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/sourcer.db
+          key: sourcer-db-${{ github.run_id }}

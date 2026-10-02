@@ -1,0 +1,110 @@
+# Your background. Everything the scorer and the (optional) LLM use comes from here.
+# Edit freely - weights are additive points on a 0-100-ish scale.
+
+name: Paarth
+summary: >
+  Data scientist / applied ML practitioner. Industry experience in airlines and
+  real estate. Built pricing models, recommendation engines and personalization
+  systems. Interested in applied ML, data science and product data science roles,
+  especially at early-stage, recently funded startups.
+
+# Role titles you want. A posting must hit at least one of these to be considered.
+target_titles:
+  strong:            # +40
+    - data scientist
+    - applied scientist
+    - machine learning engineer
+    - ml engineer
+    - applied ml
+    - product data scientist
+    - data science
+    - research scientist, applied
+    - pricing scientist
+    - decision scientist
+  moderate:          # +20
+    - machine learning
+    - analytics engineer
+    - quantitative analyst
+    - product analyst
+    - growth analyst
+    - founding data
+    - ai engineer
+    - ranking
+    - personalization
+
+# Titles to drop outright.
+exclude_titles:
+  - intern
+  - internship
+  - recruiter
+  - sales
+  - account executive
+  - marketing manager
+  - director of
+  - vp
+  - vice president
+  - head of people
+  - phd residency
+
+# Seniority you'd consider. Postings with these words get a small bonus (+5).
+seniority_bonus:
+  - senior
+  - staff
+  - founding
+  - lead
+
+# Domain expertise - matched against job description and funding news text.
+domains:
+  ml_areas:          # +8 each, capped
+    - pricing
+    - dynamic pricing
+    - revenue management
+    - yield management
+    - price optimization
+    - recommendation
+    - recommender
+    - recommendations
+    - personalization
+    - personalized
+    - ranking
+    - search relevance
+    - causal inference
+    - experimentation
+    - a/b test
+    - forecasting
+    - demand forecasting
+    - marketplace
+  verticals:         # +10 each, capped
+    - airline
+    - airlines
+    - aviation
+    - travel
+    - hospitality
+    - hotel
+    - real estate
+    - proptech
+    - property
+    - mortgage
+    - rental
+    - home buying
+    - commercial real estate
+
+# Where you'd work. Empty list = no location filter.
+# Postings whose location matches none of these (and aren't remote) are penalized, not dropped.
+locations:
+  - remote
+  - new york
+  - san francisco
+  - bay area
+  - seattle
+  - chicago
+  - detroit
+  - ann arbor
+
+# Minimum score for a posting to show up in alerts.
+alert_threshold: 45
+
+# People you'd consider a warm intro even though they aren't in your LinkedIn export
+# (e.g. alumni, former coworkers, people you've met). company -> list of names/notes.
+warm_contacts: {}
+#  Acme Travel: ["Jane Doe (ex-coworker at ...)"]

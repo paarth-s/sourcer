@@ -1,0 +1,25 @@
+# Companies to poll every run, regardless of funding news or connections.
+# `ats` / `slug` are optional - if omitted, sourcer probes Greenhouse, Lever,
+# Ashby and Workable using slugs guessed from the name.
+#
+# Funded companies and LinkedIn-connection companies are added automatically;
+# this file is for companies you already know you care about.
+
+companies:
+  - name: Hopper
+  - name: Navan
+  - name: Airbnb
+    ats: greenhouse
+    slug: airbnb
+  - name: Zillow
+  - name: Opendoor
+  - name: Redfin
+  - name: Expedia
+  - name: Booking.com
+  - name: FLYR
+  - name: PROS
+  - name: Fetcherr
+  - name: EliseAI
+  - name: Roofstock
+  - name: Pacaso
+  - name: Duffel

@@ -1,0 +1,4 @@
+{"hits":{"hits":[
+ {"_id":"0001999999-26-000001:primary_doc.xml","_source":{"ciks":["0001999999"],"display_names":["FARELOOP INC  (CIK 0001999999)"],"file_date":"2026-09-25","form":"D","biz_locations":["Austin, TX"]}},
+ {"_id":"0001888888-26-000002:primary_doc.xml","_source":{"ciks":["0001888888"],"display_names":["Pricing Opportunities Fund II, L.P.  (CIK 0001888888)"],"file_date":"2026-09-26","form":"D","biz_locations":["New York, NY"]}}
+]}}

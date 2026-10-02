@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Google News</title>
+<item><title>Fareloop raises $14M Series A to bring AI dynamic pricing to regional airlines - TechCrunch</title>
+<link>https://news.example.com/fareloop</link><pubDate>Wed, 30 Sep 2026 14:00:00 GMT</pubDate>
+<description>Fareloop builds revenue management and personalization software for airlines.</description></item>
+<item><title>Proptech startup Nestwise lands $6.5 million seed round - Business Insider</title>
+<link>https://news.example.com/nestwise</link><pubDate>Thu, 01 Oct 2026 09:00:00 GMT</pubDate>
+<description>Nestwise uses recommendation models to match renters with real estate listings.</description></item>
+<item><title>Why seed rounds are getting bigger - Fortune</title>
+<link>https://news.example.com/essay</link><pubDate>Thu, 01 Oct 2026 09:00:00 GMT</pubDate></item>
+<item><title>Crateful, the B2B logistics platform, secures $40M in Series B funding - PR Newswire</title>
+<link>https://news.example.com/crateful</link><pubDate>Thu, 01 Oct 2026 10:00:00 GMT</pubDate>
+<description>Warehouse software.</description></item>
+</channel></rss>
