@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+from pathlib import Path
 import sys
 from datetime import datetime, timezone
 
@@ -20,6 +21,9 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--daily", action="store_true",
                    help="scheduled mode: run + email once per day, from 6am America/Los_Angeles")
     r.add_argument("--force", action="store_true", help="with --daily: send even if already sent today")
+    r.add_argument("--preview", action="store_true",
+                   help="email the full current digest (all matching roles from the last 14 days, "
+                        "not just unsent ones) without changing what future daily emails include")
 
     sub.add_parser("test-email", help="send a short test email to confirm delivery is configured")
 
@@ -74,6 +78,8 @@ def main(argv: list[str] | None = None) -> int:
         from .pipeline import run
         local = datetime.now(ZoneInfo("America/Los_Angeles"))
         today = f"{local:%Y-%m-%d}"
+        if args.preview:
+            return _preview(cfg)
         if args.daily and not args.force:
             store = Store(cfg.db_path)
             already = store.get_meta("last_daily_email") == today
@@ -181,6 +187,44 @@ def main(argv: list[str] | None = None) -> int:
         print((path / "application.md").read_text())
         return 0
     return 1
+
+
+def _preview(cfg) -> int:
+    """Run against a scratch copy of the state that keeps discovered job boards but forgets
+    what was already sent, so the email shows everything currently matching."""
+    import shutil
+    import sqlite3
+    import tempfile
+
+    from .email_html import render_email
+    from .notify import send_resend, send_smtp
+    from .pipeline import run
+
+    with tempfile.TemporaryDirectory() as tmp:
+        scratch = Path(tmp) / "preview.db"
+        if cfg.db_path.exists():
+            shutil.copy(cfg.db_path, scratch)
+            con = sqlite3.connect(scratch)
+            con.executescript("DELETE FROM jobs; DELETE FROM leads;")
+            con.commit()
+            con.close()
+        os.environ["SOURCER_DB"] = str(scratch)
+        res = run(cfg, mark_seen=False)
+        res.packets = []
+        subject, html_body, text = render_email(res)
+        subject = "[Preview] " + subject
+        cfg.reports_dir.mkdir(exist_ok=True)
+        (cfg.reports_dir / "preview-email.html").write_text(html_body)
+        for fn in (send_resend, send_smtp):
+            try:
+                if fn(subject, html_body, text):
+                    print(f"preview: {len(res.new_jobs)} roles, {len(res.leads)} leads, "
+                          f"{res.roles_scanned} roles scanned (sent: email)")
+                    return 0
+            except Exception as e:  # noqa: BLE001
+                print(f"{fn.__name__} failed: {e}")
+        print(f"preview: {len(res.new_jobs)} roles, {len(res.leads)} leads (not sent - email not configured)")
+        return 1
 
 
 if __name__ == "__main__":

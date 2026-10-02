@@ -16,7 +16,7 @@ class Config:
 
     @property
     def db_path(self) -> Path:
-        return self.root / "data" / "sourcer.db"
+        return Path(os.environ.get("SOURCER_DB", self.root / "data" / "sourcer.db"))
 
     @property
     def reports_dir(self) -> Path:

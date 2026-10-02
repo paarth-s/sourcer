@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "daily = full run + email now; test-email = just check delivery"
+        description: "daily = full run + email now; preview = email everything currently matching (doesn't affect daily emails); test-email = just check delivery"
         type: choice
-        options: [daily, test-email]
+        options: [daily, preview, test-email]
         default: daily
 
 concurrency:
@@ -51,7 +51,7 @@ jobs:
 
       # State (seen jobs, discovered boards, last email date) persists in the Actions cache.
       - name: Restore state
-        if: github.event_name == 'schedule' || inputs.mode == 'daily'
+        if: github.event_name == 'schedule' || inputs.mode != 'test-email'
         uses: actions/cache/restore@v4
         with:
           path: data/sourcer.db
@@ -63,7 +63,7 @@ jobs:
       #   base64 -i private/resume.yaml  | gh secret set RESUME_YAML_B64
       #   base64 -i private/answers.yaml | gh secret set ANSWERS_YAML_B64
       - name: Load private inputs
-        if: github.event_name == 'schedule' || inputs.mode == 'daily'
+        if: github.event_name == 'schedule' || inputs.mode != 'test-email'
         env:
           CONNECTIONS_B64: ${{ secrets.LINKEDIN_CONNECTIONS_B64 }}
           RESUME_B64: ${{ secrets.RESUME_YAML_B64 }}
@@ -83,6 +83,12 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python -m sourcer run --daily ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }} 2> data/run.log
+
+      - name: Preview email
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'preview'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python -m sourcer run --preview 2> data/run.log
 
       - name: Show errors
         if: failure()
