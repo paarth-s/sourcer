@@ -96,3 +96,29 @@ def test_form_d_enrich(fixture):
     assert not edgar.is_startup_raise(ev, fund_xml)
     re_xml = xml.replace("Other Technology", "Other Real Estate")
     assert not edgar.is_startup_raise(ev, re_xml)
+
+
+def test_real_headlines_from_live_run():
+    cases = {
+        "OuterSignal Raises $22M Series A to Expand AI-Powered Personalization Marketing - citybiz":
+            ("OuterSignal", 22e6, "Series A"),
+        "OuterSignal Raises $22 Million Series A To Expand Agentic Customer Personalization Platform":
+            ("OuterSignal", 22e6, "Series A"),
+        "Joe AI raises €2M to put AI agents inside real estate's inbox - app.dealroom.co": ("Joe AI", 2e6, None),
+        "Exclusive: Homeward Raises $120M To Help Homeowners Buy And Sell More Quickly - Crunchbase News":
+            ("Homeward", 120e6, None),
+        "EliseAI raises $350M to enhance its AI work automation suite - siliconangle.com": ("EliseAI", 350e6, None),
+        "Kanu AI raises $11.7m to turn how staff work into software they own": ("Kanu AI", 11.7e6, None),
+        "Exclusive | AI Cyber Startup Armadin Raises $255 Million - WSJ": ("Armadin", 255e6, None),
+        "Elio Mortgage Raises $5.1M to Build an AI-Native Mortgage Brokerage": ("Elio Mortgage", 5.1e6, None),
+        "Home Interior Materials Startup Gravity Raises $15 Mn To Expand Into New Categories": ("Gravity", 15e6, None),
+        "EDT raises $2.4 million in Pre-Series A, enters beauty-tech": ("EDT", 2.4e6, "Pre-Series A"),
+    }
+    for title, want in cases.items():
+        got = parse_headline(title)
+        assert got is not None, title
+        assert (got[0], got[1], got[2]) == want, (title, got)
+    for title in ("Top 50: Europe's most influential AI leaders - EU-Startups",
+                  "Lobby, Crewfare win People's Choice Awards at the 2026 Global Startup Pitch",
+                  "AI Real Estate Firms Keep Reeling in Millions of Dollars - therealdeal.com"):
+        assert parse_headline(title) is None, title

@@ -113,13 +113,15 @@ def score_job(job: Job, profile: dict, *, n_connections: int = 0,
 def company_fit(funding: FundingEvent, profile: dict) -> tuple[float, list[str]]:
     """How interesting is a newly-funded company, before we've seen any roles?"""
     score, reasons = domain_score(f"{funding.company} {funding.headline} {funding.summary}", profile)
-    if funding.round:
-        r = funding.round.lower()
-        if r in ("seed", "pre-seed", "series a", "series b"):
-            score += 10
-            reasons.append(f"{funding.round} stage - building first data team")
-        elif r.startswith("series"):
-            score += 5
+    r = (funding.round or "").lower()
+    if r in ("seed", "pre-seed", "pre-series a", "series a", "series b"):
+        score += 10
+        reasons.append(f"{funding.round} stage - building first data team")
+    elif r.startswith("series"):
+        score += 5
+    elif funding.amount_usd and 1e6 <= funding.amount_usd <= 150e6:
+        score += 8  # round not named in the headline, but a startup-sized raise
+        reasons.append("early-stage raise")
     if funding.amount_usd and funding.amount_usd >= 10e6:
         score += 5
     return score, reasons

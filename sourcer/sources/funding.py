@@ -16,25 +16,27 @@ log = logging.getLogger(__name__)
 
 _VERBS = (r"raises|raised|lands|landed|secures|secured|closes|closed|nabs|bags|snags|"
           r"gets|grabs|picks up|scores|announces|completes|banks|attracts")
-_AMOUNT = r"(?:US)?[$€£]\s?(?P<num>\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s?(?P<unit>[MBK]|mn|bn|million|billion|thousand)?"
-_ROUND = (r"(?P<round>pre-seed|seed|series [a-h]\+?|growth|bridge|strategic|venture|debt|"
+_AMOUNT = (r"(?:US)?[$€£]\s?(?P<num>\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s?"
+           r"(?P<unit>million|billion|thousand|mn|mm|bn|[MBK])?\b")
+_ROUND = (r"(?P<round>pre-seed|pre-series [a-h]|seed|series [a-h]\+?|growth|bridge|strategic|venture|debt|"
           r"equity|funding|financing)")
 
 # "Acme, the AI pricing startup, raises $12M Series A"
 HEADLINE_RE = re.compile(
-    rf"^(?P<company>[A-Z0-9][\w.&'’\- ]{{0,60}}?)(?:,[^,]{{0,90}},)?\s+(?:{_VERBS})\b"
+    rf"^(?P<company>[A-Z0-9][\w.&'’\- ]{{0,60}}?)(?:,[^,]{{0,90}},)?\s+(?i:{_VERBS})\b"
     rf"(?P<rest>.*)$"
 )
 AMOUNT_RE = re.compile(_AMOUNT, re.I)
 ROUND_RE = re.compile(_ROUND, re.I)
 # Leading descriptors to strip: "AI pricing startup Acme raises..." -> "Acme"
 _DESCRIPTOR_RE = re.compile(
-    r"^(?:.*\b(?:startup|start-up|platform|company|firm|provider|maker|unicorn|fintech|proptech|"
+    r"^(?:.*\b(?i:startup|start-up|platform|company|firm|provider|maker|unicorn|fintech|proptech|"
     r"insurtech|traveltech))\s+(?P<name>[A-Z][\w.&'’\-]*(?: [A-Z][\w.&'’\-]*){0,3})$"
 )
-_FUNDING_HINT = re.compile(r"\b(raise|funding|seed|series [a-h]|round|investment|financing)\b", re.I)
+_FUNDING_HINT = re.compile(r"\b(raise[sd]?|raising|funding|seed|series [a-h]|round|investment|financing)\b", re.I)
+_PREFIX_RE = re.compile(r"^(exclusive|breaking|scoop|funding|deal|report)\s*[:|\-–]\s*", re.I)
 
-_UNIT_MULT = {"k": 1e3, "thousand": 1e3, "m": 1e6, "mn": 1e6, "million": 1e6,
+_UNIT_MULT = {"k": 1e3, "thousand": 1e3, "m": 1e6, "mn": 1e6, "mm": 1e6, "million": 1e6,
               "b": 1e9, "bn": 1e9, "billion": 1e9}
 
 
@@ -47,6 +49,7 @@ def parse_headline(title: str) -> tuple[str, float | None, str | None] | None:
     """Extract (company, amount_usd, round) from a funding headline, or None if it isn't one."""
     title = html.unescape(_strip_source(title))
     title = re.sub(r"[\u2010-\u2015\u2212]", "-", title).replace("\u00a0", " ")
+    title = _PREFIX_RE.sub("", title)
     if not _FUNDING_HINT.search(title):
         return None
     m = HEADLINE_RE.match(title)

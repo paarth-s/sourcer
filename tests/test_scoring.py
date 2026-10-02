@@ -55,3 +55,12 @@ def test_foreign_remote_penalized(profile):
                         profile, now=NOW)
     pl, _ = score_job(job("Senior Data Scientist", loc="Remote (Poland) or Cracow"), profile, now=NOW)
     assert us >= profile["alert_threshold"] > emea and pl < profile["alert_threshold"]
+
+
+def test_company_fit_without_named_round(profile):
+    ev = FundingEvent(company="Joe AI", headline="Joe AI raises €2M to put AI agents inside real estate's inbox",
+                      url="", source="t", amount_usd=2e6)
+    assert company_fit(ev, profile)[0] >= 18
+    late = FundingEvent(company="Big", headline="Big raises $350M for real estate automation", url="",
+                        source="t", amount_usd=350e6)
+    assert company_fit(late, profile)[0] < 18

@@ -87,6 +87,10 @@ domains:
     - mortgage
     - rental
     - home buying
+    - homeowners
+    - homebuyers
+    - housing
+    - leasing
     - commercial real estate
 
 # Where you'd work. Empty list = no location filter.

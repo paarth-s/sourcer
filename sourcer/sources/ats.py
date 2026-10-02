@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from ..http import get_json
+from ..http import RateLimited, get_json
 from ..models import Job, normalize_company
 
 log = logging.getLogger(__name__)
@@ -127,10 +127,21 @@ PROVIDERS = {
 }
 
 
+# Providers that rate-limited us during this process; skipped until the next run.
+_THROTTLED: set[str] = set()
+
+
 def fetch_board(s: requests.Session, ats: str, slug: str, company: str) -> list[Job] | None:
-    """Return jobs on a board, or None if the board doesn't exist."""
+    """Return jobs on a board, or None if the board doesn't exist (or its ATS is throttling us)."""
+    if ats in _THROTTLED:
+        return None
     url_fn, parse_fn, key = PROVIDERS[ats]
-    data = get_json(s, url_fn(slug))
+    try:
+        data = get_json(s, url_fn(slug), raise_rate_limit=True)
+    except RateLimited:
+        log.warning("%s is rate limiting; skipping it for the rest of this run", ats)
+        _THROTTLED.add(ats)
+        return None
     if data is None:
         return None
     if key and not (isinstance(data, dict) and key in data):

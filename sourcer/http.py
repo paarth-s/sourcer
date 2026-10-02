@@ -23,10 +23,19 @@ def session(user_agent: str | None = None) -> requests.Session:
     return s
 
 
-def get_json(s: requests.Session, url: str, **kw):
+class RateLimited(Exception):
+    pass
+
+
+def get_json(s: requests.Session, url: str, *, raise_rate_limit: bool = False, **kw):
     """GET a JSON endpoint; returns None on 404 or network failure (logged)."""
     try:
         r = s.get(url, timeout=kw.pop("timeout", (10, 30)), **kw)
+    except requests.exceptions.RetryError as e:
+        if raise_rate_limit and "429" in str(e):
+            raise RateLimited(url) from e
+        log.warning("GET %s failed: %s", url, e)
+        return None
     except requests.RequestException as e:
         log.warning("GET %s failed: %s", url, e)
         return None

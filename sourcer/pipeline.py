@@ -103,7 +103,8 @@ def run(cfg: Config, *, skip_network_fetch: bool = False) -> RunResult:
         if found:
             store.upsert_company(key, name, _origin, ats=found[0], slug=found[1], probed=True)
             res.boards_discovered += 1
-        else:
+        elif not ats_mod._THROTTLED:
+            # Only record "no board" if every provider actually answered; otherwise retry next run.
             store.upsert_company(key, name, _origin, probed=True)
     store.conn.commit()
 
