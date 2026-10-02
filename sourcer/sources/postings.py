@@ -14,7 +14,8 @@ from ..models import Job
 from . import ats
 
 EEO_RE = re.compile(r"gender|race|racial|ethnic|hispanic|latino|veteran|disabilit|sexual orientation|"
-                    r"transgender|pronoun|demographic|identify as", re.I)
+                    r"transgender|pronoun|demographic|identify as|equal (employment )?opportunity|"
+                    r"\beeo|self[- ]identif|completion is voluntary|voluntary", re.I)
 
 
 @dataclass

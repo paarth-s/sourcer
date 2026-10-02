@@ -67,3 +67,17 @@ def test_connections(fixture):
 def test_normalize_company():
     assert normalize_company("Nestwise, Inc.") == normalize_company("nestwise") == "nestwise"
     assert normalize_company("Booking.com") == "booking com"
+
+
+def test_headline_edge_cases_from_live_run():
+    assert parse_headline("Brazil's Sharp raises $328,000 pre-seed to decode why salespeople win") == \
+        ("Sharp", 328000.0, "Pre-Seed")
+    assert parse_headline("Unveilr AI secures pre‑seed funding at Rs 16.7 cr valuation")[2] == "Pre-Seed"
+
+
+def test_eeo_and_whitespace():
+    from sourcer.models import Job
+    from sourcer.sources.postings import Question
+    assert Question("U.S. Equal Opportunity Employment Information (Completion is voluntary)").is_eeo
+    assert not Question("How did you hear about this job?").is_eeo
+    assert Job(company="X", title=" Account Manager ", url="", source="t", external_id="1").title == "Account Manager"

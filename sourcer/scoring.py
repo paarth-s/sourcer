@@ -52,12 +52,18 @@ def domain_score(text: str, profile: dict) -> tuple[float, list[str]]:
     return float(score), reasons
 
 
-def location_ok(location: str, profile: dict) -> bool:
+def location_excluded(location: str, profile: dict, title: str = "") -> bool:
+    """e.g. "Remote - EMEA" or "Remote (Poland)" shouldn't count as remote for you."""
+    return bool(_hits(f"{location} {title}".lower(), profile.get("exclude_locations") or []))
+
+
+def location_ok(location: str, profile: dict, title: str = "") -> bool:
+    if location_excluded(location, profile, title):
+        return False
     prefs = profile.get("locations") or []
     if not prefs or not location:
         return True
-    loc = location.lower()
-    return any(p.lower() in loc for p in prefs)
+    return any(p.lower() in location.lower() for p in prefs)
 
 
 def score_job(job: Job, profile: dict, *, n_connections: int = 0,
@@ -84,7 +90,10 @@ def score_job(job: Job, profile: dict, *, n_connections: int = 0,
     if _hits(job.title.lower(), profile.get("seniority_bonus", [])):
         score += 5
 
-    if not location_ok(job.location, profile):
+    if location_excluded(job.location, profile, job.title):
+        score -= 30
+        reasons.append(f"location: {job.location}")
+    elif not location_ok(job.location, profile):
         score -= 15
         reasons.append(f"location: {job.location}")
 

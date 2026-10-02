@@ -101,6 +101,28 @@ locations:
   - detroit
   - ann arbor
 
+# Regions that disqualify a "remote" posting for you (matched in location or title).
+exclude_locations:
+  - emea
+  - europe
+  - eu remote
+  - uk
+  - united kingdom
+  - london
+  - germany
+  - berlin
+  - france
+  - paris
+  - poland
+  - india
+  - bangalore
+  - apac
+  - latam
+  - canada only
+  - australia
+  - singapore
+  - israel
+
 # Minimum score for a posting to show up in alerts.
 alert_threshold: 45
 

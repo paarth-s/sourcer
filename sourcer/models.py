@@ -49,6 +49,11 @@ class Job:
     department: str = ""
     board: str = ""           # ATS board slug, when known
 
+    def __post_init__(self):
+        self.title = " ".join(self.title.split())
+        self.company = " ".join(self.company.split())
+        self.location = " ".join(self.location.split())
+
     @property
     def uid(self) -> str:
         return f"{self.source}:{self.external_id}"

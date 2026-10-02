@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 _VERBS = (r"raises|raised|lands|landed|secures|secured|closes|closed|nabs|bags|snags|"
           r"gets|grabs|picks up|scores|announces|completes|banks|attracts")
-_AMOUNT = r"(?:US)?[$€£]\s?(?P<num>\d+(?:\.\d+)?)\s?(?P<unit>[MBK]|mn|bn|million|billion|thousand)?"
+_AMOUNT = r"(?:US)?[$€£]\s?(?P<num>\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s?(?P<unit>[MBK]|mn|bn|million|billion|thousand)?"
 _ROUND = (r"(?P<round>pre-seed|seed|series [a-h]\+?|growth|bridge|strategic|venture|debt|"
           r"equity|funding|financing)")
 
@@ -46,6 +46,7 @@ def _strip_source(title: str) -> str:
 def parse_headline(title: str) -> tuple[str, float | None, str | None] | None:
     """Extract (company, amount_usd, round) from a funding headline, or None if it isn't one."""
     title = html.unescape(_strip_source(title))
+    title = re.sub(r"[\u2010-\u2015\u2212]", "-", title).replace("\u00a0", " ")
     if not _FUNDING_HINT.search(title):
         return None
     m = HEADLINE_RE.match(title)
@@ -55,6 +56,8 @@ def parse_headline(title: str) -> tuple[str, float | None, str | None] | None:
     d = _DESCRIPTOR_RE.match(company)
     if d:
         company = d.group("name")
+    # "Brazil's Sharp", "India's Acme" -> "Sharp", "Acme"
+    company = re.sub(r"^[A-Z][a-z]+(?: [A-Z][a-z]+)?['’]s\s+", "", company)
     # Reject obvious non-company subjects.
     if company.lower() in {"startup", "the startup", "company", "it", "this startup"} or len(company) < 2:
         return None
@@ -65,7 +68,7 @@ def parse_headline(title: str) -> tuple[str, float | None, str | None] | None:
     am = AMOUNT_RE.search(rest)
     if am:
         unit = (am.group("unit") or "").lower()
-        amount = float(am.group("num")) * _UNIT_MULT.get(unit, 1.0)
+        amount = float(am.group("num").replace(",", "")) * _UNIT_MULT.get(unit, 1.0)
     rd = ROUND_RE.search(rest)
     rnd = rd.group("round").title() if rd else None
     return company, amount, rnd

@@ -53,7 +53,23 @@ def run(cfg: Config) -> int:
 
     print("\n== SEC Form D")
     ua = sec_user_agent(cfg.sources.get("edgar", {}).get("user_agent", ""))
-    filings = edgar.search_form_d("software", 14, ua)
+    from datetime import date, timedelta
+    end = date.today()
+    r = s.get(edgar.SEARCH, timeout=30, headers={"User-Agent": ua}, params={
+        "q": '"software"', "forms": "D", "dateRange": "custom",
+        "startdt": (end - timedelta(days=14)).isoformat(), "enddt": end.isoformat()})
+    print(f"    HTTP {r.status_code}, user-agent {'from SEC_USER_AGENT' if os.environ.get('SEC_USER_AGENT') else 'default (no contact - SEC may reject)'}")
+    try:
+        raw = r.json()
+        hits = raw.get("hits", {}).get("hits", [])
+        print(f"    raw hits: {len(hits)} (total {raw.get('hits', {}).get('total')}); top-level keys {list(raw)[:6]}")
+        if hits:
+            print(f"    first hit keys: {list(hits[0])}; _source keys: {list(hits[0].get('_source', {}))[:12]}")
+            print(f"    first names: {[h.get('_source', {}).get('display_names') for h in hits[:3]]}")
+    except ValueError:
+        raw = None
+        print(f"    non-JSON body: {r.text[:200]!r}")
+    filings = edgar.parse_search(raw) if raw else []
     results.append(_line(bool(filings), "EDGAR full-text search", f"{len(filings)} operating-company filings"))
     for ev in filings[:5]:
         print(f"    - {ev.headline}")
