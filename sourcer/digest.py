@@ -34,6 +34,8 @@ def render(res: RunResult, now: datetime | None = None) -> str:
             out.append(f"- Claude: {sj.llm_note}")
         if sj.funding:
             out.append(f"- Funding: [{sj.funding.headline}]({sj.funding.url})")
+        if sj.packet:
+            out.append(f"- Application packet ready (tailored resume + answers): `{sj.packet}`")
         for c in sj.connections[:3]:
             link = f"[{c.name}]({c.url})" if c.url else c.name
             out.append(f"- Ask for a referral: {link} - {c.position}")

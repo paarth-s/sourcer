@@ -45,6 +45,18 @@ jobs:
             echo "$CONNECTIONS_B64" | base64 -d > data/Connections.csv
           fi
 
+      # Resume bank + application facts, for auto-prepared application packets:
+      #   base64 -i private/resume.yaml | gh secret set RESUME_YAML_B64
+      #   base64 -i private/answers.yaml | gh secret set ANSWERS_YAML_B64
+      - name: Load resume bank
+        env:
+          RESUME_B64: ${{ secrets.RESUME_YAML_B64 }}
+          ANSWERS_B64: ${{ secrets.ANSWERS_YAML_B64 }}
+        run: |
+          mkdir -p private
+          if [ -n "$RESUME_B64" ]; then echo "$RESUME_B64" | base64 -d > private/resume.yaml; fi
+          if [ -n "$ANSWERS_B64" ]; then echo "$ANSWERS_B64" | base64 -d > private/answers.yaml; fi
+
       # Output is kept out of the (public) Actions log: only counts are printed.
       - name: Run
         env:

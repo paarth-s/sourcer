@@ -10,3 +10,7 @@ data/linkedin/
 reports/*.md
 reports/*.html
 .env
+
+# Resume, application answers, generated packets - personal data, never commit
+private/
+applications/

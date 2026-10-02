@@ -43,16 +43,33 @@ def _client():
     return anthropic.Anthropic()
 
 
-def _ask(client, prompt: str, schema: dict, max_tokens: int = 2000) -> dict | None:
+def candidate_text(profile: dict) -> str:
+    """Best available description of the candidate: the full resume bank if present."""
+    from .resume import Bank
+    path = resume_path()
+    if path.exists():
+        return Bank.load(path).as_text()
+    return profile.get("summary", "").strip()
+
+
+def resume_path():
+    from pathlib import Path
+    return Path(os.environ.get("SOURCER_RESUME", "private/resume.yaml"))
+
+
+def _ask(client, prompt: str, schema: dict, max_tokens: int = 2000, effort: str = "low",
+         system: str | None = None) -> dict | None:
     import anthropic
+    extra = {"system": system} if system else {}
     try:
         resp = client.beta.messages.create(
             model=MODEL,
             max_tokens=max_tokens,
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
+            output_config={"effort": effort, "format": {"type": "json_schema", "schema": schema}},
             messages=[{"role": "user", "content": prompt}],
+            **extra,
         )
     except anthropic.RateLimitError as e:
         log.warning("Claude rate limited: %s", e)
@@ -78,12 +95,13 @@ def rerank(jobs: list[ScoredJob], profile: dict, top_n: int = 15) -> None:
     if not enabled() or not jobs:
         return
     client = _client()
+    candidate = candidate_text(profile)
     for sj in sorted(jobs, key=lambda x: -x.score)[:top_n]:
         j = sj.job
         prompt = (
             "You screen job postings for one candidate. Rate how well the candidate fits this "
             "role and how likely they are to get an interview.\n\n"
-            f"<candidate>\n{profile.get('summary', '').strip()}\n</candidate>\n\n"
+            f"<candidate>\n{candidate}\n</candidate>\n\n"
             f"<posting>\nCompany: {j.company}\nTitle: {j.title}\nLocation: {j.location}\n\n"
             f"{j.description[:15000]}\n</posting>"
         )
@@ -99,6 +117,7 @@ def draft_outreach(leads: list[OutreachLead], profile: dict, top_n: int = 5) -> 
     if not enabled() or not leads:
         return
     client = _client()
+    candidate = candidate_text(profile)
     for lead in leads[:top_n]:
         who = lead.connections[0] if lead.connections else None
         to = (f"{who.name} ({who.position} at {lead.company}), a 1st-degree connection"
@@ -110,7 +129,7 @@ def draft_outreach(leads: list[OutreachLead], profile: dict, top_n: int = 5) -> 
             "a 15-minute chat about data science / ML work at the company before a role is posted. "
             "Reference the specific news and one concrete way the candidate's experience applies. "
             "Plain, direct, not salesy.\n\n"
-            f"<candidate>\n{profile.get('summary', '').strip()}\n</candidate>\n"
+            f"<candidate>\n{candidate}\n</candidate>\n"
             f"<recipient>{to}</recipient>\n<news>{context}</news>\n"
             f"<why_fit>{'; '.join(lead.reasons)}</why_fit>"
         )

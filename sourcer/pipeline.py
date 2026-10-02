@@ -28,6 +28,7 @@ class RunResult:
     new_jobs: list[ScoredJob] = field(default_factory=list)
     leads: list[OutreachLead] = field(default_factory=list)
     funding_seen: list[FundingEvent] = field(default_factory=list)
+    packets: list[str] = field(default_factory=list)
     boards_polled: int = 0
     boards_discovered: int = 0
     network_size: int = 0
@@ -124,6 +125,8 @@ def run(cfg: Config, *, skip_network_fetch: bool = False) -> RunResult:
     llm.rerank(res.new_jobs, profile)
     res.new_jobs = sorted((j for j in res.new_jobs if j.score >= threshold), key=lambda x: -x.score)
     llm.draft_outreach(res.leads, profile)
+    if not skip_network_fetch:
+        res.packets = prepare_packets(cfg, res.new_jobs)
 
     store.mark_alerted([sj.job.uid for sj in res.new_jobs])
     for lead in res.leads:
@@ -191,3 +194,28 @@ def build_leads(funding_by_key: dict[str, FundingEvent], open_by_company: dict[s
                                   search_links=people_search_links(ev.company)))
     leads.sort(key=lambda l: -l.score)
     return leads[:15]
+
+
+def prepare_packets(cfg: Config, jobs: list[ScoredJob]) -> list[str]:
+    """Tailored resume + drafted answers for the best new roles (needs Claude + a resume bank)."""
+    settings = cfg.profile.get("applications") or {}
+    top_n, min_score = settings.get("auto_prepare_top", 3), settings.get("min_score", 60)
+    if not top_n or not llm.enabled() or not cfg.resume_path.exists():
+        return []
+    from .resume import Bank
+    from .sources.postings import greenhouse_questions
+    from .tailor import load_facts, prepare_application
+    bank, facts = Bank.load(cfg.resume_path), load_facts(cfg.answers_path)
+    paths = []
+    for sj in [j for j in jobs if j.score >= min_score][:top_n]:
+        job = sj.job
+        questions = (greenhouse_questions(job.board, job.external_id)
+                     if job.source == "greenhouse" and job.board else [])
+        try:
+            path = prepare_application(bank, job, questions, facts, cfg.applications_dir)
+        except Exception as e:  # one bad posting shouldn't sink the run
+            log.error("packet for %s failed: %s", job.uid, e)
+            continue
+        sj.packet = str(path)
+        paths.append(str(path))
+    return paths

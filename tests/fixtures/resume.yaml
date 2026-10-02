@@ -1,0 +1,26 @@
+contact: {name: Jordan Example, phone: "555-0100", email: jordan@example.com, location: "Somewhere, CA", linkedin: linkedin.com/in/example}
+summaries:
+  ds: Data scientist with pricing and recommendation experience across 50,000 listings.
+  mle: ML engineer building production pricing systems.
+  product: Product data scientist defining metrics.
+education:
+  - {degree: MS Statistics, school: Example U, dates: 2020 - 2022}
+skills:
+  Frameworks: [PyTorch, Pandas, CausalML]
+  Tools: [Tableau, Matplotlib]
+skills_omit: {ds: [Matplotlib], mle: [Tableau], product: [Matplotlib]}
+experience:
+  - id: acme
+    company: Acme Homes
+    location: Remote
+    dates: 2022 - 2026
+    titles: {ds: "Data Scientist, Pricing", mle: "ML Engineer, Pricing", product: "Data Scientist, Pricing"}
+    order: {mle: [ac-infra, ac-pricing]}
+    bullets:
+      - id: ac-pricing
+        text: Built a rent pricing model that cut time to lease by 4.8% and saved ~$8M annually.
+      - id: ac-recs
+        text: Built a recommendation engine for concessions saving ~$300K per year.
+      - id: ac-infra
+        text: Rewrote training pipelines and a feature store, saving ~8 hours per month.
+        alt: {mle: "Rewrote automated training and inference pipelines and a feature store, saving ~8 hours per month."}

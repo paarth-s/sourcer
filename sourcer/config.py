@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +25,18 @@ class Config:
     @property
     def connections_path(self) -> Path:
         return self.root / "data" / "Connections.csv"
+
+    @property
+    def resume_path(self) -> Path:
+        return Path(os.environ.get("SOURCER_RESUME", self.root / "private" / "resume.yaml"))
+
+    @property
+    def answers_path(self) -> Path:
+        return Path(os.environ.get("SOURCER_ANSWERS", self.root / "private" / "answers.yaml"))
+
+    @property
+    def applications_dir(self) -> Path:
+        return self.root / "applications"
 
 
 def _load(path: Path) -> dict:

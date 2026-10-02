@@ -137,7 +137,10 @@ def fetch_board(s: requests.Session, ats: str, slug: str, company: str) -> list[
         return None
     if key is None and not isinstance(data, list):
         return None
-    return parse_fn(data, company)
+    jobs = parse_fn(data, company)
+    for j in jobs:
+        j.board = slug
+    return jobs
 
 
 # --- discovery -------------------------------------------------------------------

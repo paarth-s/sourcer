@@ -104,6 +104,12 @@ locations:
 # Minimum score for a posting to show up in alerts.
 alert_threshold: 45
 
+# Application packets (tailored resume + drafted answers), attached to the digest email.
+# Needs ANTHROPIC_API_KEY and private/resume.yaml. `python -m sourcer apply <url>` does one on demand.
+applications:
+  auto_prepare_top: 3    # best N new roles per run
+  min_score: 60
+
 # People you'd consider a warm intro even though they aren't in your LinkedIn export
 # (e.g. alumni, former coworkers, people you've met). company -> list of names/notes.
 warm_contacts: {}

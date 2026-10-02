@@ -5,8 +5,10 @@ import logging
 import os
 import re
 import smtplib
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from pathlib import Path
 
 import requests
 
@@ -35,15 +37,32 @@ def _md_to_html(md: str) -> str:
     return "<div style='font-family:sans-serif;max-width:760px'>" + "\n".join(out) + "</div>"
 
 
-def send_email(subject: str, md: str) -> bool:
+def _attachments(packets: list[str]) -> list[tuple[str, bytes]]:
+    out = []
+    for p in packets:
+        d = Path(p)
+        for name in ("resume.pdf", "application.md"):
+            f = d / name
+            if f.exists():
+                out.append((f"{d.name}-{name}", f.read_bytes()))
+    return out
+
+
+def send_email(subject: str, md: str, packets: list[str] | None = None) -> bool:
     host, to = os.environ.get("SMTP_HOST"), os.environ.get("DIGEST_EMAIL_TO")
     if not (host and to):
         return False
     user, pw = os.environ.get("SMTP_USER", ""), os.environ.get("SMTP_PASSWORD", "")
-    msg = MIMEMultipart("alternative")
+    msg = MIMEMultipart("mixed")
     msg["Subject"], msg["From"], msg["To"] = subject, os.environ.get("SMTP_FROM", user), to
-    msg.attach(MIMEText(md, "plain"))
-    msg.attach(MIMEText(_md_to_html(md), "html"))
+    body = MIMEMultipart("alternative")
+    body.attach(MIMEText(md, "plain"))
+    body.attach(MIMEText(_md_to_html(md), "html"))
+    msg.attach(body)
+    for filename, data in _attachments(packets or []):
+        part = MIMEApplication(data, Name=filename)
+        part["Content-Disposition"] = f'attachment; filename="{filename}"'
+        msg.attach(part)
     with smtplib.SMTP(host, int(os.environ.get("SMTP_PORT", "587")), timeout=30) as s:
         s.starttls()
         if user:
@@ -77,7 +96,7 @@ def deliver(res, md: str) -> list[str]:
         return []
     subject = f"Sourcer: {len(res.new_jobs)} new roles, {len(res.leads)} outreach leads"
     sent = []
-    for name, fn in (("email", lambda: send_email(subject, md)), ("slack", lambda: send_slack(md))):
+    for name, fn in (("email", lambda: send_email(subject, md, res.packets)), ("slack", lambda: send_slack(md))):
         try:
             if fn():
                 sent.append(name)

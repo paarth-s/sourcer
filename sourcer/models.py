@@ -47,6 +47,7 @@ class Job:
     description: str = ""
     posted_at: datetime | None = None
     department: str = ""
+    board: str = ""           # ATS board slug, when known
 
     @property
     def uid(self) -> str:
@@ -79,6 +80,7 @@ class ScoredJob:
     connections: list[Connection] = field(default_factory=list)
     funding: FundingEvent | None = None
     llm_note: str = ""
+    packet: str = ""          # path to a prepared application packet, if any
 
 
 @dataclass

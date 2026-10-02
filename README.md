@@ -3,7 +3,7 @@
 Finds data science / ML roles that fit your background **as they go live, or before
 they exist**, and points you to the people to contact.
 
-It runs every 3 hours on GitHub Actions and sends you a digest with two sections:
+It runs every 3 hours on GitHub Actions and sends you a digest with three parts:
 
 1. **New roles, apply early.** Matching postings pulled straight from company job
    boards (Greenhouse, Lever, Ashby, Workable) within hours of publication. Job
@@ -15,6 +15,11 @@ It runs every 3 hours on GitHub Actions and sends you a digest with two sections
    (optionally) an outreach note drafted by Claude. If a company is hiring data
    engineers but not data scientists yet, its score goes up: a DS opening usually
    follows.
+
+3. **An application packet for your best new roles.** For each one you get a resume
+   tailored to that posting (a one-page PDF) and drafted answers to its application
+   questions. Packets are attached to the digest email. See
+   [Resume tailoring and application answers](#resume-tailoring-and-application-answers).
 
 ## Where the signals come from
 
@@ -59,8 +64,12 @@ against your summary and drafts outreach notes for the top 5 leads.
    - Slack: `SLACK_WEBHOOK_URL`
 4. **Required for SEC data:** `SEC_USER_AGENT`, e.g. `Your Name you@example.com`.
    SEC's fair-access policy requires a contact string.
-5. **Optional, for Claude re-ranking and drafts:** `ANTHROPIC_API_KEY`. Only the top
-   candidates are sent, so each run costs cents.
+5. **For Claude re-ranking, outreach drafts and application packets:**
+   `ANTHROPIC_API_KEY`. Only the top candidates are sent, so each run costs cents,
+   plus roughly $0.10–0.30 per packet. For packets in scheduled runs, also add
+   `RESUME_YAML_B64` and `ANSWERS_YAML_B64`:
+   `base64 -i private/resume.yaml | gh secret set RESUME_YAML_B64`, and the same
+   for answers.
 6. Actions tab → *sourcer* → **Run workflow** to start the first run. The first run
    discovers boards and records a baseline. It only alerts on postings from the last
    14 days, so you don't get flooded.
@@ -76,10 +85,58 @@ python -m sourcer run --no-send -v      # full run; report in reports/latest.md
 pytest
 ```
 
+## Resume tailoring and application answers
+
+Your resume lives in `private/resume.yaml` (git-ignored). It's a bank of every bullet
+from your DS, MLE and Product Analytics resumes, including the per-variant phrasings,
+titles and bullet order. To prepare a packet for any posting:
+
+```bash
+python -m sourcer apply https://job-boards.greenhouse.io/acme/jobs/123
+python -m sourcer apply https://jobs.lever.co/acme/<id> --questions questions.txt
+python -m sourcer apply --jd posting.txt --company Acme --title "Product Data Scientist"
+python -m sourcer resume --variant mle     # render a base version, untailored
+```
+
+Each packet goes in `applications/<date>-<company>-<role>/` and contains
+`resume.pdf`, `resume.html`, `application.md` (what changed, gaps, every answer with a
+status), `answers.json` and `posting.txt`.
+
+How it works:
+1. **Pick a base resume.** The DS, MLE or Product version is chosen from the posting's
+   title and description. `--variant` overrides it.
+2. **Tailor.** Claude reorders bullets by relevance, rephrases them to use the
+   posting's vocabulary, rewrites the objective, reorders skills, and picks the best
+   of your job titles. It also lists *gaps*: requirements your resume doesn't show.
+3. **Check every change** before rendering:
+   - Each bullet must cite its source bullet. Any number that isn't in the source
+     (a new metric, a changed %) reverts the bullet to your original wording.
+   - Bullets that grow more than 20% revert too.
+   - Skills and titles can only come from your bank, so tools you don't list can't
+     be added.
+
+   Every reverted bullet is listed under "Check these".
+4. **Answer the questions.** Greenhouse publishes each job's application form, so its
+   questions are fetched automatically. For Lever, Ashby, Workable or anything else,
+   put the questions in a text file, separated by blank lines, and pass `--questions`.
+   - Name, email, phone and LinkedIn are filled in from your bank.
+   - Claude drafts the rest using only your resume and `private/answers.yaml`.
+   - Anything that needs a fact you haven't provided (sponsorship, salary, start date,
+     relocation) is marked **NEEDS INPUT** rather than guessed.
+   - Demographic, EEO, veteran and disability questions are never answered or sent
+     to Claude.
+
+**Fill in `private/answers.yaml` once.** It holds work authorization, salary range,
+start date, and a few short stories in your own words for "why us" or "tell us about a
+project" questions.
+
+Only your name and resume content go to Claude. Your contact details don't.
+
 ## Privacy
 
-This repo is public. Your connections file is a secret and is never written to the
-repo or to logs. Run output goes to a file inside the runner rather than the public
+This repo is public. Your connections file, resume bank and answers are secrets.
+They're never written to the repo or to logs. Application packets are only emailed
+to you. Run output goes to a file inside the runner rather than the public
 Actions log, and the state DB lives in the Actions cache. **Making the repo private
 is still recommended** (Settings → General → Change visibility). The scheduled run
 uses about 2–4 minutes, well inside the free private-repo Actions quota.
