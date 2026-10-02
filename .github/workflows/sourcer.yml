@@ -59,7 +59,7 @@ jobs:
           restore-keys: sourcer-db-v2-
 
       # Private inputs live in secrets, never in this (public) repo:
-      #   base64 -i Connections.csv      | gh secret set LINKEDIN_CONNECTIONS_B64
+      #   gzip -c Connections.csv | base64 | gh secret set LINKEDIN_CONNECTIONS_B64
       #   base64 -i private/resume.yaml  | gh secret set RESUME_YAML_B64
       #   base64 -i private/answers.yaml | gh secret set ANSWERS_YAML_B64
       - name: Load private inputs
@@ -70,7 +70,12 @@ jobs:
           ANSWERS_B64: ${{ secrets.ANSWERS_YAML_B64 }}
         run: |
           mkdir -p data private
-          if [ -n "$CONNECTIONS_B64" ]; then echo "$CONNECTIONS_B64" | base64 -d > data/Connections.csv; fi
+          if [ -n "$CONNECTIONS_B64" ]; then
+            echo "$CONNECTIONS_B64" | base64 -d > data/Connections.raw
+            # accepts plain or gzip-compressed CSV (large exports exceed the 48KB secret limit)
+            if gzip -t data/Connections.raw 2>/dev/null; then gunzip -c data/Connections.raw > data/Connections.csv
+            else mv data/Connections.raw data/Connections.csv; fi
+          fi
           if [ -n "$RESUME_B64" ]; then echo "$RESUME_B64" | base64 -d > private/resume.yaml; fi
           if [ -n "$ANSWERS_B64" ]; then echo "$ANSWERS_B64" | base64 -d > private/answers.yaml; fi
 

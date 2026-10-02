@@ -177,3 +177,12 @@ def test_smartrecruiters_parse():
                                                    "company": {"identifier": "Acme"}}]}, "Acme")
     assert jobs[0].title == "Data Scientist" and "(Remote)" in jobs[0].location
     assert jobs[0].url == "https://jobs.smartrecruiters.com/Acme/7"
+
+
+def test_referral_ranking():
+    from sourcer.models import Connection
+    people = [Connection("A", "Eng", "Acme", "Software Engineer"),
+              Connection("B", "DS", "Acme", "Senior Data Scientist"),
+              Connection("C", "Rec", "Acme", "Technical Recruiter"),
+              Connection("D", "Head", "Acme", "Head of Data Science")]
+    assert [c.first_name for c in Network(people).at("Acme")] == ["C", "D", "B", "A"]

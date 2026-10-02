@@ -16,6 +16,7 @@ from __future__ import annotations
 import csv
 import io
 import os
+import re
 from collections import defaultdict
 from pathlib import Path
 from urllib.parse import quote
@@ -64,11 +65,27 @@ class Network:
         return cls(parse_connections(path.read_text(encoding="utf-8-sig")), warm_contacts)
 
     def at(self, company: str) -> list[Connection]:
-        return self.by_company.get(normalize_company(company), [])
+        """Your connections at `company`, most useful for a referral first."""
+        return sorted(self.by_company.get(normalize_company(company), []), key=referral_rank)
 
     def companies(self) -> dict[str, str]:
         """normalized key -> display name, for every company where you know someone."""
         return {k: v[0].company for k, v in self.by_company.items() if k}
+
+
+_RANKS = [
+    re.compile(r"recruit|talent|sourcer|hiring", re.I),                       # can route you directly
+    re.compile(r"(head|director|vp|manager|lead).*(data|machine learning|ml|ai|analytics|science)"
+               r"|(data|ml|ai|analytics).*(head|director|vp|manager|lead)", re.I),  # likely hiring manager
+    re.compile(r"data scien|machine learning|\bml\b|applied scien|analytics", re.I),  # future teammate
+]
+
+
+def referral_rank(c: Connection) -> int:
+    for i, rx in enumerate(_RANKS):
+        if rx.search(c.position or ""):
+            return i
+    return len(_RANKS)
 
 
 def people_search_links(company: str) -> dict[str, str]:
