@@ -72,3 +72,24 @@ def test_company_fit_without_named_round(profile):
     late = FundingEvent(company="Big", headline="Big raises $350M for real estate automation", url="",
                         source="t", amount_usd=350e6)
     assert company_fit(late, profile)[0] < 18
+
+
+def test_broad_titles_need_similar_work(profile):
+    analytic = ("Own experimentation and A/B testing for the rentals funnel. Build forecasting and "
+                "regression models in SQL and Python; define KPIs.")
+    dashboards = "Build and maintain Tableau dashboards and monthly reports for leadership."
+    bi, why = score_job(job("Senior BI Analyst", analytic), profile, now=NOW)
+    assert bi >= profile["alert_threshold"] and any(r.startswith("similar work") for r in why)
+    assert score_job(job("BI Analyst", dashboards), profile, now=NOW)[0] == 0
+    assert score_job(job("Data Analyst, Pricing", analytic), profile, now=NOW)[0] >= profile["alert_threshold"]
+    # Strong titles are not subject to the work check
+    assert score_job(job("Data Scientist", dashboards), profile, now=NOW)[0] >= profile["alert_threshold"]
+    assert score_job(job("Sales Analyst", analytic), profile, now=NOW)[0] == 0  # excluded family
+
+
+def test_broad_titles_skip_finance_and_eng(profile):
+    analytic = "SQL, Python, forecasting, regression, KPIs, experimentation and A/B testing."
+    assert score_job(job("Strategic Financial Analyst", analytic), profile, now=NOW)[0] == 0
+    assert score_job(job("Principal, Strategic Finance & Analytics", analytic), profile, now=NOW)[0] == 0
+    assert score_job(job("Staff Engineer - Experimentation Platform", analytic), profile, now=NOW)[0] == 0
+    assert score_job(job("Lead Advanced Analytics, Product", analytic), profile, now=NOW)[0] >= 45

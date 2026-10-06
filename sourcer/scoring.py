@@ -32,7 +32,20 @@ def title_match(title: str, profile: dict) -> tuple[float, list[str]]:
     moderate = _hits(t, tt.get("moderate", []))
     if moderate:
         return 20.0, [f"title: {moderate[0]}"]
+    broad = _hits(t, tt.get("broad", []))
+    if broad:
+        return 20.0, [f"title: {broad[0]}"]
     return 0.0, []
+
+
+def is_broad_only(title: str, profile: dict) -> bool:
+    """Title qualifies only via the 'broad' list (e.g. 'BI Analyst'), so the work must be checked."""
+    t, tt = title.lower(), profile.get("target_titles", {})
+    return not _hits(t, tt.get("strong", []) + tt.get("moderate", [])) and bool(_hits(t, tt.get("broad", [])))
+
+
+def work_signals(text: str, profile: dict) -> list[str]:
+    return _hits(text, profile.get("work_signals", []))
 
 
 def is_adjacent(title: str) -> bool:
@@ -80,6 +93,12 @@ def score_job(job: Job, profile: dict, *, n_connections: int = 0,
     if base == 0:
         return 0.0, []
     score = base
+    if is_broad_only(job.title, profile):
+        signals = work_signals(job.description, profile)
+        if len(signals) < profile.get("min_work_signals", 3):
+            return 0.0, []  # analyst-type title, but not the kind of work you do
+        score += min(len(signals) * 3, 15)
+        reasons.append("similar work: " + ", ".join(signals[:4]))
 
     dscore, dreasons = domain_score(f"{job.title} {job.description}", profile)
     score += dscore

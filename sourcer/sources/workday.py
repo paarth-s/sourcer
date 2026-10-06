@@ -23,7 +23,8 @@ from ..models import Job
 log = logging.getLogger(__name__)
 
 URL_RE = re.compile(r"https?://(?P<tenant>[\w-]+)\.(?P<wd>wd\d+)\.myworkdayjobs\.com/(?:[a-z]{2}-[A-Z]{2}/)?(?P<site>[\w-]+)")
-DEFAULT_SEARCHES = ["data scientist", "machine learning", "applied scientist", "analytics", "pricing"]
+DEFAULT_SEARCHES = ["data scientist", "machine learning", "applied scientist", "analytics", "pricing",
+                    "analyst", "business intelligence", "experimentation"]
 PAGE = 20
 
 

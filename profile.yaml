@@ -31,6 +31,48 @@ target_titles:
     - ai engineer
     - ranking
     - personalization
+  broad:             # +20, but only if the description shows similar work (see work_signals)
+    - analyst
+    - analytics
+    - business intelligence
+    - bi engineer
+    - bi developer
+    - insights
+    - pricing strategy
+    - revenue management
+    - decision science
+    - marketing science
+
+# For "broad" titles: the description must mention at least `min_work_signals` of these,
+# so a dashboards-only BI role doesn't qualify but an experimentation-heavy one does.
+min_work_signals: 3
+work_signals:
+  - sql
+  - python
+  - a/b test
+  - a/b testing
+  - experiment
+  - experiments
+  - experimentation
+  - causal
+  - causal inference
+  - statistical
+  - statistics
+  - regression
+  - modeling
+  - modelling
+  - predictive
+  - forecasting
+  - machine learning
+  - hypothesis
+  - pricing
+  - optimization
+  - segmentation
+  - metrics
+  - kpis
+  - funnel
+  - spark
+  - dbt
 
 # Titles to drop outright.
 exclude_titles:
@@ -46,6 +88,14 @@ exclude_titles:
   - vice president
   - head of people
   - phd residency
+  - financial analyst
+  - strategic finance
+  - fp&a
+  - accounting
+  - accountant
+  - deal desk
+  - business systems
+  - capture
 
 # Senior-but-reachable: shown, but scored down 10 and labeled "stretch level".
 stretch_titles:
