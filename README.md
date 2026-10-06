@@ -23,6 +23,24 @@ emails you a digest with three parts:
    questions. Packets are attached to the digest email. See
    [Resume tailoring and application answers](#resume-tailoring-and-application-answers).
 
+Each role and lead also gets a **"Who to contact"** section: 1–3 key people (hiring
+manager, recruiter, founders for small startups) and the exact message to send. For
+LinkedIn, that's a connection note under 300 characters plus a follow-up for once
+they accept; for 1st-degree connections, the message goes directly. If someone's email
+is published on a public page, you get a drafted email instead. Guardrails:
+- A LinkedIn URL is shown only if it appeared in real search results; otherwise you
+  get a search link marked "profile not confirmed".
+- An email is shown only if it appears on a fetched public page. Addresses are never
+  guessed.
+
+This needs `ANTHROPIC_API_KEY`. Optional private files (git-ignored):
+- `private/outreach_examples.md`: messages you've written, so drafts match your tone.
+- `private/outreach_log.yaml`: people you've already contacted, so they're skipped:
+  ```yaml
+  contacted:
+    - {name: Jane Doe, company: Zillow, date: 2026-10-06}
+  ```
+
 ## Where the signals come from
 
 | Signal | Source | Why it's early |

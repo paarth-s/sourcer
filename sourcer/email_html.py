@@ -50,6 +50,40 @@ def _link(url: str, text: str) -> str:
     return f"<a href='{_e(url)}' style='color:{ACCENT};text-decoration:none'>{_e(text)}</a>"
 
 
+def _box(label: str, text: str) -> str:
+    return (f"<div style='margin-top:6px'><div style='font-size:11px;color:{MUTED};text-transform:uppercase;"
+            f"letter-spacing:.04em'>{_e(label)}</div><div style='margin-top:2px;padding:9px 11px;background:{BG};"
+            f"border-radius:6px;font-size:13px;white-space:pre-wrap'>{_e(text)}</div></div>")
+
+
+def _contacts_html(contacts: list) -> str:
+    if not contacts:
+        return ""
+    out = [f"<div style='margin-top:12px;padding-top:10px;border-top:1px dashed {LINE}'>"
+           f"<div style='font-size:13px;font-weight:600'>Who to contact</div>"]
+    for c in contacts:
+        if c.email:
+            where = f"<a href='mailto:{_e(c.email)}' style='color:{ACCENT}'>{_e(c.email)}</a> (public email)"
+        elif c.linkedin_url:
+            where = _link(c.linkedin_url, "LinkedIn profile")
+        else:
+            where = _link(c.search_url, "find on LinkedIn") + " (profile not confirmed - check it's them)"
+        tag = " &middot; 1st-degree connection" if c.first_degree else ""
+        out.append(f"<div style='margin-top:10px;font-size:13px'><b>{_e(c.name)}</b>, {_e(c.title)}{tag}"
+                   f"<div style='color:{MUTED}'>{_e(c.why)} &middot; {where}</div>")
+        if c.email and c.email_body:
+            out.append(_box(f"Email subject: {c.email_subject}", c.email_body))
+        else:
+            if c.connection_note and not c.first_degree:
+                out.append(_box("LinkedIn connection note", c.connection_note))
+            if c.message:
+                out.append(_box("LinkedIn message" + ("" if c.first_degree else " (once they accept)"),
+                                c.message))
+        out.append("</div>")
+    out.append("</div>")
+    return "".join(out)
+
+
 def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str, str]:
     """Returns (subject, html, text)."""
     now = now or datetime.now(TZ)
@@ -94,7 +128,7 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
             f"<div style='color:{MUTED};font-size:13px;margin-top:3px'>{meta}</div></td>"
             f"<td style='vertical-align:top;text-align:right;white-space:nowrap;padding-left:10px'>"
             f"<span style='font-size:13px;font-weight:600;color:{ACCENT}'>{sj.score:.0f}</span></td></tr></table>"
-            f"<div style='margin-top:8px'>{reasons}</div>{''.join(extra)}"))
+            f"<div style='margin-top:8px'>{reasons}</div>{''.join(extra)}{_contacts_html(sj.contacts)}"))
 
     # --- Outreach leads ---------------------------------------------------------------
     rows.append(_section("Reach out before the role exists",
@@ -117,11 +151,11 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
             who = _link(c.url, c.name) if c.url else _e(c.name)
             body.append(f"<div style='font-size:13px;margin-top:6px'>You know {who} "
                         f"<span style='color:{MUTED}'>({_e(c.position)})</span></div>")
-        links = " &middot; ".join(_link(u, k) for k, u in lead.search_links.items())
-        body.append(f"<div style='font-size:13px;margin-top:8px'>Find people: {links}</div>")
-        if lead.draft_message:
-            body.append(f"<div style='margin-top:10px;padding:10px 12px;background:{BG};border-radius:6px;"
-                        f"font-size:13px;white-space:pre-wrap'>{_e(lead.draft_message)}</div>")
+        if lead.contacts:
+            body.append(_contacts_html(lead.contacts))
+        else:
+            links = " &middot; ".join(_link(u, k) for k, u in lead.search_links.items())
+            body.append(f"<div style='font-size:13px;margin-top:8px'>Find people: {links}</div>")
         rows.append(_card("".join(body)))
 
     # --- Funding radar --------------------------------------------------------------
@@ -150,6 +184,8 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
     text = [subject, ""]
     for sj in res.new_jobs:
         text.append(f"- {sj.job.title} @ {sj.job.company} ({sj.job.location}) [{sj.score:.0f}]\n  {sj.job.url}")
+        for c in sj.contacts:
+            text.append(f"    -> {c.name} ({c.title}) {c.email or c.linkedin_url}\n       {c.email_body or c.message}")
     if res.leads:
         text.append("\nReach out:")
         text += [f"- {l.company}: {l.funding.headline if l.funding else ''}" for l in res.leads]

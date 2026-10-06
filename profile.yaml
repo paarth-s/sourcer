@@ -177,6 +177,14 @@ exclude_locations:
 # Minimum score for a posting to show up in alerts.
 alert_threshold: 45
 
+# Outreach: for the top roles (one per company) and top leads, find 1-3 key people and
+# draft the exact LinkedIn note/message, or an email when one is publicly listed.
+# Needs ANTHROPIC_API_KEY. Optional private files: private/outreach_examples.md (messages
+# you've written, for tone) and private/outreach_log.yaml (people already contacted).
+outreach:
+  roles: 5
+  leads: 4
+
 # Application packets (tailored resume + drafted answers), attached to the digest email.
 # Needs ANTHROPIC_API_KEY and private/resume.yaml. `python -m sourcer apply <url>` does one on demand.
 applications:

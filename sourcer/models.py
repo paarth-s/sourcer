@@ -87,6 +87,7 @@ class ScoredJob:
     llm_note: str = ""
     packet: str = ""          # path to a prepared application packet, if any
     context: str = ""         # what the company does (YC one-liner etc.)
+    contacts: list = field(default_factory=list)   # outreach.Contact: who to message + drafts
 
 
 @dataclass
@@ -100,3 +101,4 @@ class OutreachLead:
     adjacent_roles: list[Job] = field(default_factory=list)
     search_links: dict[str, str] = field(default_factory=dict)
     draft_message: str = ""
+    contacts: list = field(default_factory=list)   # outreach.Contact

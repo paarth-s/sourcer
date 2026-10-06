@@ -157,7 +157,8 @@ def run(cfg: Config, *, skip_network_fetch: bool = False, mark_seen: bool = True
     threshold = profile.get("alert_threshold", 45)
     llm.rerank(res.new_jobs, profile)
     res.new_jobs = sorted((j for j in res.new_jobs if j.score >= threshold), key=lambda x: -x.score)
-    llm.draft_outreach(res.leads, profile)
+    if not skip_network_fetch:
+        prepare_outreach(cfg, res)
     if not skip_network_fetch:
         res.packets = prepare_packets(cfg, res.new_jobs)
 
@@ -261,3 +262,27 @@ def mark_delivered(cfg: Config, res: RunResult) -> None:
     for lead in res.leads:
         store.mark_lead(normalize_company(lead.company))
     store.close()
+
+
+def prepare_outreach(cfg: Config, res: RunResult) -> None:
+    """Key people + exact messages for the top roles (one per company) and top leads."""
+    from .outreach import Target, prepare
+    settings = cfg.profile.get("outreach") or {}
+    n_roles, n_leads = settings.get("roles", 5), settings.get("leads", 4)
+    pairs: list[tuple[object, Target]] = []
+    seen: set[str] = set()
+    for sj in res.new_jobs:
+        if len([p for p in pairs if hasattr(p[0], "job")]) >= n_roles:
+            break
+        if sj.job.company_key in seen:
+            continue
+        seen.add(sj.job.company_key)
+        ctx = sj.context or (sj.funding.headline if sj.funding else "")
+        pairs.append((sj, Target(company=sj.job.company, role_title=sj.job.title, role_url=sj.job.url,
+                                 role_summary=sj.job.description, context=ctx, known=sj.connections)))
+    for lead in res.leads[:n_leads]:
+        ctx = lead.funding.headline if lead.funding else ""
+        pairs.append((lead, Target(company=lead.company, context=ctx, known=lead.connections)))
+    prepare([t for _, t in pairs], cfg.root / "private", cfg.profile)
+    for obj, t in pairs:
+        obj.contacts = t.contacts

@@ -9,7 +9,7 @@ import json
 import logging
 import os
 
-from .models import OutreachLead, ScoredJob
+from .models import ScoredJob
 
 log = logging.getLogger(__name__)
 
@@ -25,14 +25,6 @@ FIT_SCHEMA = {
     "required": ["fit", "why", "gap"],
     "additionalProperties": False,
 }
-
-MSG_SCHEMA = {
-    "type": "object",
-    "properties": {"message": {"type": "string"}},
-    "required": ["message"],
-    "additionalProperties": False,
-}
-
 
 def enabled() -> bool:
     return bool(os.environ.get("ANTHROPIC_API_KEY")) and os.environ.get("SOURCER_LLM", "1") != "0"
@@ -111,28 +103,3 @@ def rerank(jobs: list[ScoredJob], profile: dict, top_n: int = 15) -> None:
         fit = max(0, min(100, int(out.get("fit", 0))))
         sj.score = round(0.5 * sj.score + 0.5 * fit, 1)
         sj.llm_note = out.get("why", "") + (f" Gap: {out['gap']}" if out.get("gap") else "")
-
-
-def draft_outreach(leads: list[OutreachLead], profile: dict, top_n: int = 5) -> None:
-    if not enabled() or not leads:
-        return
-    client = _client()
-    candidate = candidate_text(profile)
-    for lead in leads[:top_n]:
-        who = lead.connections[0] if lead.connections else None
-        to = (f"{who.name} ({who.position} at {lead.company}), a 1st-degree connection"
-              if who else f"a data/ML leader or founder at {lead.company} (no existing connection)")
-        context = lead.funding.headline if lead.funding else ""
-        prompt = (
-            "Write a short LinkedIn message (under 110 words, no subject line, no placeholders "
-            "other than the recipient's first name if known) from the candidate below. Goal: get "
-            "a 15-minute chat about data science / ML work at the company before a role is posted. "
-            "Reference the specific news and one concrete way the candidate's experience applies. "
-            "Plain, direct, not salesy.\n\n"
-            f"<candidate>\n{candidate}\n</candidate>\n"
-            f"<recipient>{to}</recipient>\n<news>{context}</news>\n"
-            f"<why_fit>{'; '.join(lead.reasons)}</why_fit>"
-        )
-        out = _ask(client, prompt, MSG_SCHEMA)
-        if out:
-            lead.draft_message = out.get("message", "")
