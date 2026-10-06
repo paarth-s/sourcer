@@ -93,6 +93,8 @@ class Contact:
     message: str = ""
     email_subject: str = ""
     email_body: str = ""
+    placeholder: bool = False       # "find the hiring manager" slot (no named person yet)
+    find_query: str = ""
 
     @property
     def channel(self) -> str:
@@ -100,7 +102,8 @@ class Contact:
 
     @property
     def search_url(self) -> str:
-        return "https://www.linkedin.com/search/results/people/?keywords=" + quote(f"{self.name} {self.title}")
+        q = self.find_query or f"{self.name} {self.title}"
+        return "https://www.linkedin.com/search/results/people/?keywords=" + quote(q)
 
 
 @dataclass
@@ -265,9 +268,93 @@ def draft_messages(client, target: Target, candidate: str, examples: str, sender
             c.email_subject, c.email_body = d.get("email_subject") or "", d.get("email_body") or ""
 
 
+# --- no-API-key fallback: who to look for + template messages ----------------------
+
+GENERIC_HIGHLIGHT = {
+    "short": "built pricing and recommendation systems in airlines and real estate",
+    "long": "I've built pricing and recommendation systems in airlines and real estate, from modeling through production.",
+}
+
+
+def load_highlights(private_dir: Path) -> list[dict]:
+    p = private_dir / "resume.yaml"
+    if not p.exists():
+        return []
+    return (yaml.safe_load(p.read_text()) or {}).get("highlights") or []
+
+
+def pick_highlight(text: str, highlights: list[dict]) -> dict:
+    text = text.lower()
+    best, best_hits = None, 0
+    for h in highlights:
+        hits = sum(1 for k in h.get("keywords", []) if re.search(rf"(?<![a-z]){re.escape(k.lower())}(?![a-z])", text))
+        if hits > best_hits:
+            best, best_hits = h, hits
+    return best or (highlights[0] if highlights else GENERIC_HIGHLIGHT)
+
+
+def _fit_note(note: str) -> str:
+    return note if len(note) <= 300 else note[:297].rsplit(" ", 1)[0] + "..."
+
+
+def template_contacts(t: Target, highlights: list[dict], sender: str) -> list[Contact]:
+    """Who to contact + ready-to-send messages, without an LLM. Unknown people are
+    slots with a LinkedIn search; '[first name]' is the only thing to fill in."""
+    h = pick_highlight(f"{t.role_title} {t.role_summary} {t.context}", highlights)
+    sign = f"\n\n{sender}" if sender else ""
+    out: list[Contact] = []
+    for k in t.known[:1]:
+        first = k.first_name or k.name.split()[0]
+        ask = (f"I saw {t.company} is hiring a {t.role_title} ({t.role_url}) and it lines up closely with my "
+               f"work. {h['long']} Would you be open to referring me, or telling me a bit about the team? "
+               f"Happy to send my resume." if t.role_title else
+               f"I saw the news about {t.company} and I'd love to learn whether they're building out "
+               f"data/ML. {h['long']} Would you be open to a quick chat or an intro?")
+        out.append(Contact(name=k.name, title=k.position, why="you're connected", linkedin_url=k.url,
+                           verified=True, first_degree=True,
+                           message=f"Hi {first}! Hope you're doing well. {ask} Thanks!{sign}"))
+    if t.role_title:
+        out.append(Contact(
+            name="Hiring manager", title=f"data/analytics lead at {t.company}", placeholder=True,
+            why="likely owns this role - search, then pick the person leading data science/analytics",
+            find_query=f"{t.company} head of data science OR data science manager OR analytics manager",
+            connection_note=_fit_note(f"Hi [first name] - I'm an SF-based data scientist who {h['short']}. "
+                                      f"I just applied to {t.company}'s {t.role_title} role and would love to "
+                                      f"connect and learn about the team."),
+            message=(f"Thanks for connecting! I applied to the {t.role_title} role ({t.role_url}). {h['long']} "
+                     f"If you're involved in this hire, I'd really appreciate 15 minutes to learn what the team "
+                     f"needs - or a pointer to the right person.{sign}")))
+        out.append(Contact(
+            name="Recruiter", title=f"technical recruiter at {t.company}", placeholder=True,
+            why="can flag your application to the hiring team",
+            find_query=f"{t.company} technical recruiter OR talent acquisition data",
+            connection_note=_fit_note(f"Hi [first name] - I just applied to {t.company}'s {t.role_title} role. "
+                                      f"I'm a data scientist who {h['short']}. Would love to connect!"),
+            message=(f"Thanks for connecting! I applied to the {t.role_title} role ({t.role_url}). {h['long']} "
+                     f"I think it's a strong match - would you be able to flag my application to the hiring "
+                     f"team? Happy to share anything that helps.{sign}")))
+    else:
+        out.append(Contact(
+            name="Founder / CEO", title=f"founder at {t.company}", placeholder=True,
+            why="early-stage: founders usually make the first data hires",
+            find_query=f"{t.company} founder CEO",
+            connection_note=_fit_note(f"Hi [first name] - congrats on the news at {t.company}. I'm an SF-based "
+                                      f"data scientist who {h['short']}, and I'd love to connect as you build "
+                                      f"the team."),
+            message=(f"Thanks for connecting! {h['long']} I'm in SF and open to remote. If you're thinking about "
+                     f"early data/ML hires, I'd love 15 minutes to hear what you're building.{sign}")))
+    return out[:3]
+
+
 def prepare(targets: list[Target], private_dir: Path, profile: dict) -> None:
-    """Find people and draft messages for each target, in place."""
-    if not llm.enabled() or not targets:
+    """Find people and draft messages for each target, in place. Without an API key,
+    falls back to template contacts (who to look for + ready-to-send messages)."""
+    if not targets:
+        return
+    if not llm.enabled():
+        highlights, sender = load_highlights(private_dir), profile.get("name", "")
+        for t in targets:
+            t.contacts = template_contacts(t, highlights, sender)
         return
     client = llm._client()
     candidate = llm.candidate_text(profile)

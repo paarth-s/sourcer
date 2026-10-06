@@ -66,6 +66,8 @@ def _contacts_html(contacts: list) -> str:
             where = f"<a href='mailto:{_e(c.email)}' style='color:{ACCENT}'>{_e(c.email)}</a> (public email)"
         elif c.linkedin_url:
             where = _link(c.linkedin_url, "LinkedIn profile")
+        elif c.placeholder:
+            where = _link(c.search_url, "search LinkedIn for this person")
         else:
             where = _link(c.search_url, "find on LinkedIn") + " (profile not confirmed - check it's them)"
         tag = " &middot; 1st-degree connection" if c.first_degree else ""
@@ -105,6 +107,7 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
     rows.append(_section("Apply today", "New since yesterday, best fit first. Earlier applicants get read first."))
     if not res.new_jobs:
         rows.append(_card(f"<div style='color:{MUTED}'>No new roles above your threshold today.</div>"))
+    covered: set[str] = set()   # companies whose contacts were already shown above
     for sj in res.new_jobs:
         j = sj.job
         meta = " &middot; ".join(x for x in (_e(j.company), _e(j.location), _age(j.posted_at, now)) if x)
@@ -128,7 +131,12 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
             f"<div style='color:{MUTED};font-size:13px;margin-top:3px'>{meta}</div></td>"
             f"<td style='vertical-align:top;text-align:right;white-space:nowrap;padding-left:10px'>"
             f"<span style='font-size:13px;font-weight:600;color:{ACCENT}'>{sj.score:.0f}</span></td></tr></table>"
-            f"<div style='margin-top:8px'>{reasons}</div>{''.join(extra)}{_contacts_html(sj.contacts)}"))
+            f"<div style='margin-top:8px'>{reasons}</div>{''.join(extra)}{_contacts_html(sj.contacts)}"
+            + ("" if sj.contacts or j.company_key not in covered else
+               f"<div style='font-size:12px;color:{MUTED};margin-top:8px'>Who to contact: same people as the "
+               f"first {_e(j.company)} role above - mention this role too.</div>")))
+        if sj.contacts:
+            covered.add(j.company_key)
 
     # --- Outreach leads ---------------------------------------------------------------
     rows.append(_section("Reach out before the role exists",

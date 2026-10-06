@@ -123,3 +123,30 @@ def test_email_renders_contacts():
     assert "mailto:ann@acme.com" in html and "Email subject: Data at Acme" in html
     assert "profile not confirmed" in html
     assert "Hi Ann - email" in text
+
+
+def test_template_fallback_without_api_key(monkeypatch, tmp_path):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    (tmp_path / "resume.yaml").write_text(
+        "highlights:\n"
+        "  - {keywords: [recommendation, ranking], short: built a recommender (+27%), long: I built a recommender.}\n"
+        "  - {keywords: [pricing], short: built pricing (~$8M), long: I built pricing.}\n")
+    role = Target(company="Zillow", role_title="Senior Data Scientist", role_url="https://z",
+                  role_summary="Pricing models for rentals")
+    lead = Target(company="OuterSignal", context="raises $22M for personalization ranking")
+    friend = Target(company="Acme", role_title="Product Analyst", role_url="https://a",
+                    known=[Connection("Sam", "Lee", "Acme", "PM", url="https://linkedin.com/in/sam")])
+    outreach.prepare([role, lead, friend], tmp_path, {"name": "Paarth"})
+
+    assert [c.name for c in role.contacts] == ["Hiring manager", "Recruiter"]
+    hm = role.contacts[0]
+    assert hm.placeholder and "linkedin.com/search" in hm.search_url
+    assert "built pricing (~$8M)" in hm.connection_note and len(hm.connection_note) <= 300
+    assert "https://z" in hm.message and hm.message.endswith("Paarth")
+    assert "flag my application" in role.contacts[1].message
+
+    assert lead.contacts[0].name == "Founder / CEO" and "recommender" in lead.contacts[0].connection_note
+
+    assert friend.contacts[0].name == "Sam Lee" and friend.contacts[0].first_degree
+    assert friend.contacts[0].message.startswith("Hi Sam!") and "referring me" in friend.contacts[0].message
+    assert len(friend.contacts) == 3
