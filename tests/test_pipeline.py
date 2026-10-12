@@ -77,3 +77,21 @@ def test_unsent_roles_are_not_marked(tmp_path, fixture, monkeypatch):
     assert [j.job.uid for j in res2.new_jobs] == [j.job.uid for j in res.new_jobs]
     pipeline.mark_delivered(cfg, res2)             # email sent
     assert pipeline.run(cfg).new_jobs == []
+
+
+def test_resend_schedules_overnight_digest(monkeypatch):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from sourcer import notify
+    sent = []
+
+    class Ok:
+        ok = True
+    monkeypatch.setenv("RESEND_API_KEY", "k")
+    monkeypatch.setenv("DIGEST_EMAIL_TO", "me@example.com")
+    monkeypatch.setattr(notify.requests, "post", lambda url, json, **kw: sent.append(json) or Ok())
+    at = datetime(2026, 10, 13, 7, tzinfo=ZoneInfo("America/Los_Angeles"))
+    assert notify.send_resend("s", "<p>h</p>", "t", send_at=at)
+    assert sent[-1]["scheduled_at"] == "2026-10-13T07:00:00-07:00"
+    assert notify.send_resend("s", "<p>h</p>", "t")
+    assert "scheduled_at" not in sent[-1]

@@ -1,10 +1,12 @@
 """Deliver the digest. Each channel is enabled by setting its env vars; all are optional."""
 from __future__ import annotations
 
+import functools
 import logging
 import os
 import re
 import smtplib
+from datetime import datetime
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -46,9 +48,11 @@ def send_push(title: str, body: str) -> bool:
     return True
 
 
-def send_resend(subject: str, html_body: str, text: str, packets: list[str] | None = None) -> bool:
+def send_resend(subject: str, html_body: str, text: str, packets: list[str] | None = None,
+                send_at: datetime | None = None) -> bool:
     """Resend (resend.com): free tier, one API key. Without a verified domain it can only
-    send to the address you signed up with - which is exactly the digest use case."""
+    send to the address you signed up with - which is exactly the digest use case.
+    `send_at` holds the email on Resend's side until then (e.g. built overnight, lands at 7am)."""
     key, to = os.environ.get("RESEND_API_KEY"), os.environ.get("DIGEST_EMAIL_TO")
     if not (key and to):
         return False
@@ -60,6 +64,8 @@ def send_resend(subject: str, html_body: str, text: str, packets: list[str] | No
     att = _attachments(packets or [])
     if att:
         payload["attachments"] = [{"filename": n, "content": base64.b64encode(b).decode()} for n, b in att]
+    elif send_at:  # Resend can't schedule emails with attachments; those go out right away
+        payload["scheduled_at"] = send_at.isoformat()
     r = requests.post("https://api.resend.com/emails", json=payload, timeout=30,
                       headers={"Authorization": f"Bearer {key}"})
     if not r.ok:
@@ -95,20 +101,21 @@ def email_configured() -> bool:
                 (os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")))
 
 
-def deliver(res, md: str, *, always_email: bool = False) -> list[str]:
+def deliver(res, md: str, *, always_email: bool = False, send_at: datetime | None = None) -> list[str]:
     """Email (Resend or SMTP) + optional Slack/push. The daily email goes out even on quiet
-    days (always_email) so you know the system ran."""
+    days (always_email) so you know the system ran. `send_at` schedules the Resend email
+    (SMTP has no scheduling, so the fallback sends immediately)."""
     from .email_html import render_email
     sent = []
     if res.new_jobs or res.leads or always_email:
         subject, html_body, text = render_email(res)
-        for name, fn in (("email", send_resend), ("email", send_smtp)):
+        for name, fn in (("email", functools.partial(send_resend, send_at=send_at)), ("email", send_smtp)):
             try:
                 if fn(subject, html_body, text, res.packets):
                     sent.append(name)
                     break
             except Exception as e:  # noqa: BLE001 - report and try the next channel
-                log.error("%s delivery failed: %s", fn.__name__, e)
+                log.error("%s delivery failed: %s", getattr(fn, "func", fn).__name__, e)
     if not (res.new_jobs or res.leads):
         return sent
     try:

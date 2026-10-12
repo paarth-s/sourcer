@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("run", help="gather signals, poll boards, write + send the digest")
     r.add_argument("--no-send", action="store_true", help="write the report but don't notify")
     r.add_argument("--daily", action="store_true",
-                   help="scheduled mode: run + email once per day, from 6am America/Los_Angeles")
+                   help="scheduled mode: run overnight + email once per day, delivered at 7am America/Los_Angeles")
     r.add_argument("--force", action="store_true", help="with --daily: send even if already sent today")
     r.add_argument("--preview", action="store_true",
                    help="email the full current digest (all matching roles from the last 14 days, "
@@ -87,8 +87,8 @@ def main(argv: list[str] | None = None) -> int:
             store = Store(cfg.db_path)
             already = store.get_meta("last_daily_email") == today
             store.close()
-            if already or local.hour < 6:
-                print(f"daily: skipping ({'already sent today' if already else f'{local:%H:%M} PT is before 6am'})")
+            if already or local.hour < 1:
+                print(f"daily: skipping ({'already sent today' if already else f'{local:%H:%M} PT is before 1am'})")
                 return 0
         # Daily mode records what was alerted only after the email is delivered, so a failed
         # send doesn't silently drop roles from the next digest.
@@ -99,7 +99,12 @@ def main(argv: list[str] | None = None) -> int:
         path.write_text(md)
         (cfg.reports_dir / "latest.md").write_text(md)
         (cfg.reports_dir / "latest-email.html").write_text(render_email(res)[1])
-        sent = [] if args.no_send else deliver(res, md, always_email=args.daily)
+        # Scheduled runs happen overnight; Resend holds the email until 7am PT. A manual
+        # (--force) run, or one that finishes after 7, sends right away.
+        deliver_at = local.replace(hour=7, minute=0, second=0, microsecond=0)
+        send_at = deliver_at if args.daily and not args.force and datetime.now(deliver_at.tzinfo) < deliver_at \
+            else None
+        sent = [] if args.no_send else deliver(res, md, always_email=args.daily, send_at=send_at)
         if args.daily and "email" in sent:
             from .pipeline import mark_delivered
             mark_delivered(cfg, res)

@@ -1,12 +1,14 @@
 name: sourcer
 
-# Daily digest email at ~7am America/Los_Angeles.
-# GitHub cron is UTC-only, so it fires at 13:45 and 14:45 UTC (6:45 PDT / 6:45 PST);
-# `run --daily` sends once per local day and skips the run that lands before 6am.
+# Daily digest email at 7am America/Los_Angeles.
+# Runs overnight (GitHub cron is UTC-only and often starts late): 09:17 UTC = 2:17am PDT /
+# 1:17am PST, with backups at 11:17 and 13:17 UTC in case a run is dropped or fails.
+# `run --daily` sends once per local day; Resend holds the email until exactly 7:00am PT.
 on:
   schedule:
-    - cron: "45 13 * * *"
-    - cron: "45 14 * * *"
+    - cron: "17 9 * * *"
+    - cron: "17 11 * * *"
+    - cron: "17 13 * * *"
   workflow_dispatch:
     inputs:
       mode:
