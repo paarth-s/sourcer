@@ -29,6 +29,9 @@ def main(argv: list[str] | None = None) -> int:
 
     ga = sub.add_parser("google-auth", help="one-time: authorize Gmail (read-only) + Sheets access")
     ga.add_argument("--client-secret", required=True, help="OAuth client JSON from Google Cloud console")
+    tb = sub.add_parser("tracker-build", help="build data/Tracker.csv from exported recruiting emails (JSON)")
+    tb.add_argument("messages", help="JSON list of {id, sender, subject, body|snippet, date (ISO) | date_ms}")
+    tb.add_argument("--out", default="data/Tracker.csv")
     tr = sub.add_parser("tracker", help="sync your Google Sheet tracker with Gmail now")
     tr.add_argument("--dry-run", action="store_true", help="show what would change without writing")
 
@@ -148,6 +151,16 @@ def main(argv: list[str] | None = None) -> int:
         for k, v in creds.items():
             print(f"  {k} = {v}")
         print("  TRACKER_SHEET_ID = <the long id in your sheet's URL>")
+        return 0
+
+    if args.cmd == "tracker-build":
+        import json
+        from .tracker import build_from_messages
+        rows, changes = build_from_messages(json.loads(Path(args.messages).read_text()))
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(rows)
+        print(f"tracker-build: {rows.count(chr(10)) - 1} applications from {len(changes)} recruiting events "
+              f"-> {args.out}")
         return 0
 
     if args.cmd == "tracker":

@@ -1,3 +1,4 @@
+import csv
 from datetime import date, datetime, timezone
 
 from sourcer import tracker as T
@@ -229,3 +230,20 @@ def test_event_holds_avoid_people_conflicts():
     assert [e.title for e in picked] == ["b", "d"]            # b ok (Coursework is a self-block)
     assert [why for _, why in skipped][0].startswith("conflicts with 'Interview")
     assert any("another event that day" in w for _, w in skipped)    # c: same evening as b
+
+
+def test_build_tracker_from_gmail_only():
+    msgs = [{"id": "1", "sender": "no-reply@ashbyhq.com", "subject": "Thanks for applying to Zentra!",
+             "snippet": "Thanks for applying to Zentra! We received your application for the Data Scientist role.",
+             "date": "2026-09-01T18:00:00Z"},
+            {"id": "2", "sender": "no-reply@zentra.com", "subject": "Update from Zentra",
+             "snippet": "we will not be moving forward with your application for the Data Scientist role",
+             "date": "2026-09-10T18:00:00Z"},
+            {"id": "3", "sender": "scheduling@recruiting.acmebank.com", "subject": "Interview confirmation",
+             "snippet": "Great news! Your interview time is confirmed. Acmebank Data Scientist interview",
+             "date": "2026-10-12T18:00:00Z"}]
+    text, _ = T.build_from_messages(msgs)
+    rows = list(csv.reader(text.splitlines()))
+    assert rows[0][0] == "Job Title"
+    got = {r[1]: r[5] for r in rows[1:]}
+    assert got["Zentra"] == "Rejected" and got["Acmebank"] == "First Round"

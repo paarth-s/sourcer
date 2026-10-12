@@ -238,17 +238,39 @@ def find_company(ev: Event, msg: dict, known: dict[str, str]) -> str:
     if best:
         return best[2]
     # Not in the tracker yet: name it from the email (and remember the display name for new rows)
-    word = r"[A-Z][\w&'-]*(?:\.(?:com|ai|io|co))?"
-    pat = re.compile(rf"(?:applying|applied|application|apply) (?:to|at|with) ({word}(?: {word}){{0,2}})"
-                     rf"|interest in (?:joining )?({word}(?: {word}){{0,2}})|(?:position|role) at ({word}(?: {word}){{0,2}})")
-    m = pat.search(subject) or pat.search(body)
-    name = next((g for g in m.groups() if g), "") if m else ""
-    name = re.sub(r"\s+(?:Hi|Hello|Dear|We|Our|Thank|Thanks)\b.*$", "", name)
-    name = re.sub(r"\s+(?:Inc|LLC|LLP|Team|for|and|the)\.?$", "", name).strip() or ev.company.title()
+    name = _name_from_text(ev, subject, body)
     k = company_key(name)
     if k:
         known.setdefault(k, name)
     return k
+
+
+_ROLEISH = re.compile(r"\b(scientist|engineer|analyst|data|manager|director|lead|role|position|opportunity|"
+                      r"specialist|associate|intern|senior|staff|principal|team|career|careers|our|the|your)\b", re.I)
+
+
+def _name_from_text(ev: Event, subject: str, body: str) -> str:
+    word = r"[A-Z][\w&'-]*(?:\.(?:com|ai|io|co))?"
+    name_re = rf"({word}(?: {word}){{0,2}})"
+    if ev.company:                                  # sender domain, e.g. "usbank" -> find "U.S. Bank" casing
+        root = re.sub(r"[^a-z0-9]", "", ev.company.lower())
+        words = re.findall(r"[A-Za-z0-9&.'-]+", f"{subject} {body}")
+        for n in (3, 2, 1):
+            for i in range(len(words) - n + 1):
+                span = " ".join(words[i:i + n]).strip(".,")
+                if re.sub(r"[^a-z0-9]", "", span.lower()) == root:
+                    return span
+    pats = [rf"(?:applying|applied|apply|application) (?:to|at|with) {name_re}",
+            rf"(?:position|role|opportunity|opening|job|jobs|career) (?:at|with) {name_re}",
+            rf" at {name_re}", rf"interest in (?:joining )?{name_re}", rf"^{name_re} [|:-]"]
+    for text in (subject, body):
+        for pat in pats:
+            for m in re.finditer(pat, text):
+                cand = re.sub(r"\s+(?:Inc|LLC|LLP|Team|for|and|the|Hi|Hello|Dear|We|Our|Thank|Thanks)\b.*$", "",
+                              m.group(1)).strip(" .")
+                if cand and not _ROLEISH.search(cand):
+                    return cand
+    return ev.company.title() if ev.company else ""
 
 
 _ABBR = {"ds": "data scientist", "mle": "machine learning engineer", "ml": "machine learning", "sr": "senior",
@@ -532,3 +554,34 @@ def append_feed(g, sheet_id: str, cfg_tracker: dict, run_result, now: datetime |
                      (c.email_body or c.message) if c else ""])
     g.sheet_append(sheet_id, f"'{tab}'!A1", rows)
     return len(rows)
+
+
+def build_from_messages(messages: list[dict]) -> tuple[str, list[str]]:
+    """Gmail as the source of truth: rebuild the application list from recruiting emails alone.
+    Returns (CSV text in the tracker's column layout, change log)."""
+    import csv
+    import io
+    rows: list[Row] = []
+    display: dict[str, str] = {}
+    events = []
+    for m in messages:
+        m = dict(m)
+        m.setdefault("body", m.get("snippet", ""))
+        if "date_ms" not in m and m.get("date"):
+            m["date_ms"] = int(datetime.fromisoformat(m["date"].replace("Z", "+00:00")).timestamp() * 1000)
+        ev = classify(m)
+        if ev:
+            events.append((ev, find_company(ev, m, display)))
+    # referral notices alone don't make an application row; fold them in after the rest
+    _, _, log_ = apply_events(rows, [e for e in events if e[0].kind != "referral"], display=display)
+    apply_events(rows, [e for e in events if e[0].kind == "referral"], display=display)
+    out = io.StringIO()
+    w = csv.writer(out)
+    hdr = ["Job Title", "Company", "Location", "Pay", "Application Date", "Current Status", "Last Contact Date",
+           "Recruiter Info", "Connection", "Auto notes"]
+    fields = ["title", "company", "location", "pay", "applied_on", "status", "last_contact", "recruiter",
+              "connection", "notes"]
+    w.writerow(hdr)
+    for r in rows:
+        w.writerow([r.get(f) for f in fields])
+    return out.getvalue(), log_
