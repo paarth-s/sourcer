@@ -245,3 +245,11 @@ applications:
 # (e.g. alumni, former coworkers, people you've met). company -> list of names/notes.
 warm_contacts: {}
 #  Acme Travel: ["Jane Doe (ex-coworker at ...)"]
+
+# Google Sheet job tracker, kept in sync with Gmail (see README). The sheet itself is set
+# with the TRACKER_SHEET_ID secret; these are tab names inside it.
+tracker:
+  tab: Main Arena          # your applications (headers matched by name: Company, Current Status, ...)
+  people_tab: Sheet2       # optional: Person | Company - counted as warm contacts
+  feed_tab: Sourcer feed   # created automatically; new roles + leads are appended daily
+  first_lookback_days: 150

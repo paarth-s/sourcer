@@ -103,12 +103,20 @@ jobs:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          TRACKER_SHEET_ID: ${{ secrets.TRACKER_SHEET_ID }}
         run: python -m sourcer run --daily ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }} 2> data/run.log
 
       - name: Preview email
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'preview'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          TRACKER_SHEET_ID: ${{ secrets.TRACKER_SHEET_ID }}
         run: python -m sourcer run --preview 2> data/run.log
 
       - name: Show errors

@@ -163,6 +163,41 @@ project" questions.
 
 Only your name and resume content go to Claude. Your contact details don't.
 
+## Google Sheet tracker (Gmail -> sheet, sheet -> digest)
+
+If you track applications in a Google Sheet, Sourcer keeps it up to date from your inbox
+every night and uses it to steer the digest:
+
+- **Gmail -> sheet.** Confirmations mark rows *Applied* and fill in the application date.
+  Interview scheduling moves *Applied* to *First Round*. Rejections and closed reqs set
+  *Rejected* or *Closed*, and referral notices fill in *Connection*. Applications you never
+  added get a new row. Statuses only move forward, nothing is deleted, and a row that covers
+  several roles ("3 DS roles") gets a note instead of a status change. Every automatic edit is
+  logged in an **Auto notes** column.
+- **Sheet -> digest.** The email gets a *Your tracker* section listing what changed, who to
+  follow up with, and what's still *To Apply*. Names in the Connection column (and in a
+  Person | Company tab) count as warm contacts, and roles already in your sheet are left out
+  of the digest.
+- **Digest -> sheet.** Each day's roles and reach-out leads are appended to a
+  **Sourcer feed** tab, along with the drafted message.
+
+Setup, about 10 minutes, once:
+
+1. In [Google Cloud console](https://console.cloud.google.com/), create a project and enable
+   the **Gmail API** and **Google Sheets API**.
+2. Under *Google Auth Platform -> Audience*, add yourself as a test user, then **Publish app**.
+   An unpublished ("testing") app's tokens expire after 7 days. A published personal app shows
+   an "unverified" warning once, and you click through it.
+3. Under *Clients*, create an OAuth client of type **Desktop app** and download its JSON.
+4. On your computer: `python -m sourcer google-auth --client-secret client_secret.json`.
+   Approve in the browser, signing in as the account that has both the Gmail and the sheet.
+5. Add the printed `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` as GitHub
+   secrets, plus `TRACKER_SHEET_ID` (the long id in the sheet's URL).
+6. Optional: `python -m sourcer tracker --dry-run` locally shows what it would change.
+
+Tab names are set under `tracker:` in `profile.yaml`. Access is Gmail **read-only**, and only
+counts are printed to the (public) Actions log.
+
 ## Privacy
 
 This repo is public. Your connections file, resume bank and answers are secrets.

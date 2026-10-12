@@ -95,3 +95,21 @@ def test_resend_schedules_overnight_digest(monkeypatch):
     assert sent[-1]["scheduled_at"] == "2026-10-13T07:00:00-07:00"
     assert notify.send_resend("s", "<p>h</p>", "t")
     assert "scheduled_at" not in sent[-1]
+
+
+def test_tracker_filters_and_feeds_digest(tmp_path, fixture, monkeypatch):
+    from sourcer.email_html import render_email
+    from sourcer.tracker import TrackerResult, read_rows
+    cfg, _ = _setup(tmp_path, fixture, monkeypatch)
+    _, rows, _ = read_rows([["Job Title", "Company", "Current Status", "Connection"],
+                            ["Sr Data Scientist, Pricing", "Fareloop", "Applied", ""],
+                            ["DS", "Nestwise", "To Apply", "Kim"]])
+    tr = TrackerResult(rows=rows, changes=["DS @ Acme: Applied -> Rejected (10/1/2026)"],
+                       followups=["MLE @ Beta: send a check-in"], to_apply=["DS @ Nestwise (via Kim)"],
+                       warm_contacts={"Nestwise": [{"name": "Kim", "position": "connection from your tracker"}]})
+    res = pipeline.run(cfg, mark_seen=False, tracker=tr)
+    assert res.new_jobs == [] and res.skipped_tracked == 1          # already in your sheet
+    lead = next(l for l in res.leads if l.company == "Nestwise")
+    assert lead.connections[0].name == "Kim"                         # tracker contact ranks first
+    _, html, text = render_email(res)
+    assert "Your tracker" in html and "send a check-in" in html and "Applied -> Rejected" in text

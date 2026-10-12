@@ -103,6 +103,23 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
         f"{local:%A, %B %d} &middot; {res.roles_scanned:,} roles scanned across {res.boards_polled} job boards"
         f"{f' &middot; {res.network_size:,} LinkedIn connections' if res.network_size else ''}</div></td></tr>")
 
+    # --- Tracker (Google Sheet) ------------------------------------------------------
+    if res.followups or res.tracker_changes or res.to_apply:
+        rows.append(_section("Your tracker", "Synced from Gmail into your sheet overnight."))
+        parts = []
+        if res.followups:
+            parts.append("<div style='font-size:13px;font-weight:600'>Follow up today</div>"
+                         + "".join(f"<div style='font-size:13px;padding:3px 0'>&bull; {_e(x)}</div>"
+                                   for x in res.followups[:10]))
+        if res.tracker_changes:
+            parts.append("<div style='font-size:13px;font-weight:600;margin-top:10px'>Updated from your email</div>"
+                         + "".join(f"<div style='font-size:13px;padding:2px 0;color:{MUTED}'>{_e(x)}</div>"
+                                   for x in res.tracker_changes[:25]))
+        if res.to_apply:
+            parts.append("<div style='font-size:13px;font-weight:600;margin-top:10px'>Still marked To Apply</div>"
+                         f"<div style='font-size:13px;color:{MUTED}'>{_e(' · '.join(res.to_apply[:15]))}</div>")
+        rows.append(_card("".join(parts)))
+
     # --- Roles ---------------------------------------------------------------------
     rows.append(_section("Apply today", "New since yesterday, best fit first. Earlier applicants get read first."))
     if not res.new_jobs:
@@ -190,6 +207,10 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
         + "".join(rows) + "</table></td></tr></table></body></html>")
 
     text = [subject, ""]
+    if res.followups:
+        text += ["Follow up today:"] + [f"- {x}" for x in res.followups] + [""]
+    if res.tracker_changes:
+        text += ["Tracker updates:"] + [f"- {x}" for x in res.tracker_changes] + [""]
     for sj in res.new_jobs:
         text.append(f"- {sj.job.title} @ {sj.job.company} ({sj.job.location}) [{sj.score:.0f}]\n  {sj.job.url}")
         for c in sj.contacts:

@@ -27,6 +27,11 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("test-email", help="send a short test email to confirm delivery is configured")
 
+    ga = sub.add_parser("google-auth", help="one-time: authorize Gmail (read-only) + Sheets access")
+    ga.add_argument("--client-secret", required=True, help="OAuth client JSON from Google Cloud console")
+    tr = sub.add_parser("tracker", help="sync your Google Sheet tracker with Gmail now")
+    tr.add_argument("--dry-run", action="store_true", help="show what would change without writing")
+
     sub.add_parser("network", help="summarize your LinkedIn export (top companies)")
 
     t = sub.add_parser("probe", help="find the job board for a company name")
@@ -92,7 +97,11 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
         # Daily mode records what was alerted only after the email is delivered, so a failed
         # send doesn't silently drop roles from the next digest.
-        res = run(cfg, mark_seen=not args.daily)
+        tr = _tracker(cfg, write=not args.no_send)
+        if tr is not None:
+            print(f"tracker: {tr.events} recruiting emails, {len(tr.changes)} sheet updates, "
+                  f"{len(tr.followups)} follow-ups")
+        res = run(cfg, mark_seen=not args.daily, tracker=tr)
         md = render(res)
         cfg.reports_dir.mkdir(exist_ok=True)
         path = cfg.reports_dir / f"{datetime.now(timezone.utc):%Y-%m-%d-%H%M}.md"
@@ -108,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.daily and "email" in sent:
             from .pipeline import mark_delivered
             mark_delivered(cfg, res)
+            _append_feed(cfg, res)
             store = Store(cfg.db_path)
             store.set_meta("last_daily_email", today)
             store.close()
@@ -128,6 +138,28 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{net.count} connections across {len(ranked)} companies. Top 30:")
         for _k, people in ranked[:30]:
             print(f"  {len(people):3d}  {people[0].company}")
+        return 0
+
+    if args.cmd == "google-auth":
+        from .google import authorize
+        creds = authorize(args.client_secret)
+        print("\nAuthorized. Save these as GitHub repository secrets (Settings -> Secrets -> Actions):\n")
+        for k, v in creds.items():
+            print(f"  {k} = {v}")
+        print("  TRACKER_SHEET_ID = <the long id in your sheet's URL>")
+        return 0
+
+    if args.cmd == "tracker":
+        tr = _tracker(cfg, write=not args.dry_run)
+        if tr is None:
+            print("tracker: set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN and TRACKER_SHEET_ID")
+            return 1
+        print(f"{tr.events} recruiting emails, {len(tr.changes)} sheet updates"
+              + (" (dry run - nothing written)" if args.dry_run else ""))
+        for c in tr.changes:
+            print("  " + c)
+        for f in tr.followups:
+            print("  follow up: " + f)
         return 0
 
     if args.cmd == "probe":
@@ -211,6 +243,38 @@ def main(argv: list[str] | None = None) -> int:
     return 1
 
 
+def _tracker(cfg, *, write: bool):
+    """Sync the Google Sheet tracker with Gmail. None when not configured; failures are logged
+    (by type only - Actions logs are public) and never block the digest."""
+    from .google import Google, configured, sheet_id_from
+    sheet = sheet_id_from(os.environ.get("TRACKER_SHEET_ID", ""))
+    if not (configured() and sheet):
+        return None
+    from .db import Store
+    from .tracker import sync
+    store = Store(cfg.db_path)
+    try:
+        return sync(Google(), sheet, cfg.profile.get("tracker") or {}, store, write=write)
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("sourcer").error("tracker sync failed: %s", type(e).__name__)
+        return None
+    finally:
+        store.close()
+
+
+def _append_feed(cfg, res) -> None:
+    from .google import Google, configured, sheet_id_from
+    sheet = sheet_id_from(os.environ.get("TRACKER_SHEET_ID", ""))
+    if not (configured() and sheet) or not (res.new_jobs or res.leads):
+        return
+    from .tracker import append_feed
+    try:
+        n = append_feed(Google(), sheet, cfg.profile.get("tracker") or {}, res)
+        print(f"tracker: {n} rows added to the feed tab")
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("sourcer").error("tracker feed append failed: %s", type(e).__name__)
+
+
 def _preview(cfg) -> int:
     """Run against a scratch copy of the state that keeps discovered job boards but forgets
     what was already sent, so the email shows everything currently matching."""
@@ -231,7 +295,7 @@ def _preview(cfg) -> int:
             con.commit()
             con.close()
         os.environ["SOURCER_DB"] = str(scratch)
-        res = run(cfg, mark_seen=False)
+        res = run(cfg, mark_seen=False, tracker=_tracker(cfg, write=False))
         res.packets = []
         subject, html_body, text = render_email(res)
         subject = "[Preview] " + subject

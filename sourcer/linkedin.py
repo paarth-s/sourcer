@@ -53,8 +53,10 @@ class Network:
             self.by_company[normalize_company(c.company)].append(c)
         for company, people in (warm_contacts or {}).items():
             for p in people or []:
+                name, pos = (p.get("name", ""), p.get("position", "warm contact")) if isinstance(p, dict) \
+                    else (str(p), "warm contact")
                 self.by_company[normalize_company(company)].append(
-                    Connection(first_name=str(p), last_name="", company=company, position="warm contact"))
+                    Connection(first_name=name, last_name="", company=company, position=pos))
         self.count = len(connections)
 
     @classmethod
@@ -106,7 +108,7 @@ def _compact_key(name: str) -> str:
 
 
 _RANKS = [
-    re.compile(r"referred you|email intro", re.I),                           # already vouched for you
+    re.compile(r"referred you|email intro|your tracker", re.I),                           # already vouched for you
     re.compile(r"recruit|talent|sourcer|hiring", re.I),                       # can route you directly
     re.compile(r"(head|director|vp|manager|lead).*(data|machine learning|ml|ai|analytics|science)"
                r"|(data|ml|ai|analytics).*(head|director|vp|manager|lead)", re.I),  # likely hiring manager

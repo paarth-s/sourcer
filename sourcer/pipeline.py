@@ -37,6 +37,10 @@ class RunResult:
     boards_discovered: int = 0
     network_size: int = 0
     errors: list[str] = field(default_factory=list)
+    tracker_changes: list[str] = field(default_factory=list)
+    followups: list[str] = field(default_factory=list)
+    to_apply: list[str] = field(default_factory=list)
+    skipped_tracked: int = 0
 
 
 def _register_companies(cfg: Config, store: Store, network: Network,
@@ -75,14 +79,20 @@ def _register_companies(cfg: Config, store: Store, network: Network,
     return to_probe
 
 
-def run(cfg: Config, *, skip_network_fetch: bool = False, mark_seen: bool = True) -> RunResult:
+def run(cfg: Config, *, skip_network_fetch: bool = False, mark_seen: bool = True, tracker=None) -> RunResult:
+    """`tracker` (tracker.TrackerResult, optional): your sheet - its contacts count as warm paths and
+    roles already in it are left out of the digest."""
     """One sourcing pass. With mark_seen=False the alerted roles/leads are not recorded, so the
     caller can call mark_delivered() only once the email actually went out."""
     res = RunResult()
     profile = cfg.profile
     store = Store(cfg.db_path)
     first_run = not store.has_any_jobs()
-    network = Network.load(cfg.connections_path, profile.get("warm_contacts"))
+    warm = dict(profile.get("warm_contacts") or {})
+    if tracker is not None:
+        for comp, people in tracker.warm_contacts.items():
+            warm[comp] = list(warm.get(comp) or []) + people
+    network = Network.load(cfg.connections_path, warm)
     res.network_size = network.count
     now = datetime.now(timezone.utc)
 
@@ -157,6 +167,12 @@ def run(cfg: Config, *, skip_network_fetch: bool = False, mark_seen: bool = True
     threshold = profile.get("alert_threshold", 45)
     llm.rerank(res.new_jobs, profile)
     res.new_jobs = sorted((j for j in res.new_jobs if j.score >= threshold), key=lambda x: -x.score)
+    if tracker is not None:
+        from .tracker import already_tracked
+        kept = [sj for sj in res.new_jobs if not already_tracked(sj.job.company, sj.job.title, tracker.rows)]
+        res.skipped_tracked = len(res.new_jobs) - len(kept)
+        res.new_jobs = kept
+        res.tracker_changes, res.followups, res.to_apply = tracker.changes, tracker.followups, tracker.to_apply
     if not skip_network_fetch:
         prepare_outreach(cfg, res)
     if not skip_network_fetch:
