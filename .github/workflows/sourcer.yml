@@ -61,6 +61,7 @@ jobs:
       # Private inputs live in secrets, never in this (public) repo:
       #   gzip -c Connections.csv | base64 | gh secret set LINKEDIN_CONNECTIONS_B64
       #   gzip -c data/Contacts.csv | base64 | gh secret set CONTACTS_B64   (from `sourcer contacts`)
+      #   gzip -c data/Intros.csv | base64 | gh secret set INTROS_B64       (referrers / email intros)
       #   base64 -i private/resume.yaml  | gh secret set RESUME_YAML_B64
       #   base64 -i private/answers.yaml | gh secret set ANSWERS_YAML_B64
       - name: Load private inputs
@@ -68,6 +69,7 @@ jobs:
         env:
           CONNECTIONS_B64: ${{ secrets.LINKEDIN_CONNECTIONS_B64 }}
           CONTACTS_B64: ${{ secrets.CONTACTS_B64 }}
+          INTROS_B64: ${{ secrets.INTROS_B64 }}
           RESUME_B64: ${{ secrets.RESUME_YAML_B64 }}
           ANSWERS_B64: ${{ secrets.ANSWERS_YAML_B64 }}
         run: |
@@ -82,6 +84,11 @@ jobs:
             echo "$CONTACTS_B64" | base64 -d > data/Contacts.raw
             if gzip -t data/Contacts.raw 2>/dev/null; then gunzip -c data/Contacts.raw > data/Contacts.csv
             else mv data/Contacts.raw data/Contacts.csv; fi
+          fi
+          if [ -n "$INTROS_B64" ]; then
+            echo "$INTROS_B64" | base64 -d > data/Intros.raw
+            if gzip -t data/Intros.raw 2>/dev/null; then gunzip -c data/Intros.raw > data/Intros.csv
+            else mv data/Intros.raw data/Intros.csv; fi
           fi
           if [ -n "$RESUME_B64" ]; then echo "$RESUME_B64" | base64 -d > private/resume.yaml; fi
           if [ -n "$ANSWERS_B64" ]; then echo "$ANSWERS_B64" | base64 -d > private/answers.yaml; fi

@@ -61,8 +61,9 @@ class Network:
     def load(cls, path: Path, warm_contacts: dict | None = None) -> "Network":
         path = Path(os.environ.get("SOURCER_CONNECTIONS", path))
         people: list[Connection] = []
-        # LinkedIn export + address-book contacts (`sourcer contacts`), same CSV format.
-        for p in (path, path.with_name("Contacts.csv")):
+        # LinkedIn export + address-book contacts (`sourcer contacts`) + people who referred or
+        # intro'd you over email (Intros.csv), all in the same CSV format.
+        for p in (path, path.with_name("Contacts.csv"), path.with_name("Intros.csv")):
             if p.exists():
                 people += parse_connections(p.read_text(encoding="utf-8-sig"))
         return cls(people, warm_contacts)
@@ -105,6 +106,7 @@ def _compact_key(name: str) -> str:
 
 
 _RANKS = [
+    re.compile(r"referred you|email intro", re.I),                           # already vouched for you
     re.compile(r"recruit|talent|sourcer|hiring", re.I),                       # can route you directly
     re.compile(r"(head|director|vp|manager|lead).*(data|machine learning|ml|ai|analytics|science)"
                r"|(data|ml|ai|analytics).*(head|director|vp|manager|lead)", re.I),  # likely hiring manager

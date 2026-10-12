@@ -51,3 +51,56 @@ companies:
     ats: greenhouse
     slug: pacaso
   - name: Opendoor     # left Greenhouse; re-probed weekly
+
+  # --- Warm paths: companies where you have a referrer or recent intro ----------
+  # (who you know there lives in the private data/Intros.csv, not here)
+  - name: Abridge
+    ats: ashby
+    slug: abridge
+  - name: Glean
+    ats: greenhouse
+    slug: gleanwork
+  - name: Replit
+    ats: ashby
+    slug: replit
+  - name: Owner.com
+    ats: ashby
+    slug: owner
+  - name: Moxie
+    ats: ashby
+    slug: moxie
+  - name: OpenAI
+    ats: ashby
+    slug: openai
+  - name: Databricks
+    ats: greenhouse
+    slug: databricks
+  - name: Snowflake
+    ats: ashby
+    slug: snowflake
+  - name: Ironclad
+    ats: ashby
+    slug: ironcladhq
+  - name: Waymo
+    ats: greenhouse
+    slug: waymo
+  - name: DoorDash
+    ats: greenhouse
+    slug: doordashusa
+  - name: Box
+    ats: greenhouse
+    slug: boxinc
+  - name: Adyen
+    ats: greenhouse
+    slug: adyen
+  - name: Alo Yoga
+    ats: greenhouse
+    slug: aloyoga
+  - name: Salesforce
+    workday: https://salesforce.wd12.myworkdayjobs.com/External_Career_Site
+  - name: Gap
+    workday: https://gapinc.wd1.myworkdayjobs.com/GAPINC
+  - name: General Motors
+    workday: https://generalmotors.wd5.myworkdayjobs.com/Careers_GM
+  # Not scannable automatically - check by hand: Meta, Google, LinkedIn, Oracle,
+  # Indeed, U.S. Bank, PG&E, Scribd, Mojo Vision, Optilogic

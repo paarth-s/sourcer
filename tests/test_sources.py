@@ -201,3 +201,13 @@ def test_vcard_import(tmp_path):
     net = Network.load(tmp_path / "Connections.csv")
     assert net.at("Zillow Group")[0].name == "Maya Rivera"
     assert net.at("Expedia Group")[0].name == "Leo Park"
+
+
+def test_email_intros_load_and_rank_first(tmp_path):
+    hdr = "First Name,Last Name,URL,Email Address,Company,Position,Connected On\n"
+    (tmp_path / "Connections.csv").write_text(hdr + "Rae,Rec,,,Acme,Technical Recruiter,\n")
+    (tmp_path / "Intros.csv").write_text(hdr + 'Kim,Ref,,k@x.com,Acme,"Referred you - email intro",\n'
+                                         + "Lou,New,,,Beta,Contact - email intro,\n")
+    net = Network.load(tmp_path / "Connections.csv")
+    assert [c.first_name for c in net.at("Acme")] == ["Kim", "Rae"]   # a referrer beats a recruiter
+    assert "beta" in net.companies()                                  # intro companies get tracked
