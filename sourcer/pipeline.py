@@ -41,6 +41,7 @@ class RunResult:
     followups: list[str] = field(default_factory=list)
     to_apply: list[str] = field(default_factory=list)
     skipped_tracked: int = 0
+    events: list = field(default_factory=list)          # sources.events.Event
 
 
 def _register_companies(cfg: Config, store: Store, network: Network,
@@ -180,10 +181,26 @@ def run(cfg: Config, *, skip_network_fetch: bool = False, mark_seen: bool = True
     if not skip_network_fetch:
         res.packets = prepare_packets(cfg, res.new_jobs)
 
+    if not skip_network_fetch:
+        res.events = find_events(cfg, store, network)
     store.close()
     if mark_seen:
         mark_delivered(cfg, res)
     return res
+
+
+def find_events(cfg: Config, store: Store, network: Network) -> list:
+    """Luma + Partiful events worth attending, not already sent, hosts you know flagged."""
+    from .sources.events import fetch_events, score_events
+    try:
+        raw = fetch_events(session(), cfg.profile)
+    except Exception as e:  # noqa: BLE001 - events are a bonus, never block the digest
+        log.warning("events: %s", type(e).__name__)
+        return []
+    people = {c.name for cs in network.by_company.values() for c in cs if c.name}
+    sent = set((store.get_meta("events_sent") or "").split("\n"))
+    scored = [e for e in score_events(raw, cfg.profile, people) if e.uid not in sent]
+    return scored[:(cfg.profile.get("events") or {}).get("max", 8)]
 
 
 def score_and_store(jobs: list[Job], store: Store, network: Network,
@@ -280,6 +297,9 @@ def mark_delivered(cfg: Config, res: RunResult) -> None:
     store.mark_alerted([sj.job.uid for sj in res.new_jobs])
     for lead in res.leads:
         store.mark_lead(normalize_company(lead.company))
+    if res.events:
+        sent = (store.get_meta("events_sent") or "").split("\n") + [e.uid for e in res.events]
+        store.set_meta("events_sent", "\n".join(x for x in sent[-2000:] if x))
     store.close()
 
 

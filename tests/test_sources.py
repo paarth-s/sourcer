@@ -211,3 +211,23 @@ def test_email_intros_load_and_rank_first(tmp_path):
     net = Network.load(tmp_path / "Connections.csv")
     assert [c.first_name for c in net.at("Acme")] == ["Kim", "Rae"]   # a referrer beats a recruiter
     assert "beta" in net.companies()                                  # intro companies get tracked
+
+
+def test_event_scoring():
+    from datetime import datetime, timedelta, timezone
+    from sourcer.sources.events import Event, score_events
+    now = datetime(2026, 10, 12, tzinfo=timezone.utc)
+    mk = lambda title, **kw: Event(title=title, url=f"https://luma.com/{title[:5]}", start=now + timedelta(days=2),
+                                   venue=kw.pop("venue", "San Francisco, CA"), organizer=kw.pop("org", ""),
+                                   source="luma", **kw)
+    evs = [mk("Data Science & Experimentation Meetup"),
+           mk("Proptech Founders Happy Hour", hosts=["Jo Ray"]),
+           mk("Sunset Yoga + Sound Bath"),
+           mk("Mahjong Night", text="founder data science bio"),       # only the hosts' bios match
+           mk("Pricing Science Talk", venue="New York, NY"),
+           Event("Recsys Reading Group", "https://x/r", now - timedelta(days=1), "SF", "", "luma")]
+    got = score_events(evs, {}, known_people={"Jo Ray"}, now=now)
+    titles = [e.title for e in got]
+    assert titles[0] == "Data Science & Experimentation Meetup" or titles[0] == "Proptech Founders Happy Hour"
+    assert set(titles) == {"Data Science & Experimentation Meetup", "Proptech Founders Happy Hour"}
+    assert next(e for e in got if e.title.startswith("Proptech")).known_hosts == ["Jo Ray"]

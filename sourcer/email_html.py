@@ -190,6 +190,23 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
             body.append(f"<div style='font-size:13px;margin-top:8px'>Find people: {links}</div>")
         rows.append(_card("".join(body)))
 
+    # --- Events ------------------------------------------------------------------------
+    if res.events:
+        rows.append(_section("Events worth going to", "Luma + Partiful, Bay Area, next 3 weeks. Best place to meet "
+                                                       "hiring managers before roles post."))
+        items = []
+        for ev in res.events:
+            when = ev.start.astimezone(TZ)
+            who = (f" &middot; <b>you know {_e(', '.join(ev.known_hosts))}</b>" if ev.known_hosts else "")
+            meta = " &middot; ".join(x for x in (f"{when:%a %b %d, %-I:%M %p}", _e(ev.venue),
+                                                  f"{ev.guests} going" if ev.guests else "",
+                                                  _e(ev.organizer)) if x)
+            items.append(f"<div style='padding:7px 0;border-bottom:1px solid {LINE}'>"
+                         f"<div style='font-size:14px'>{_link(ev.url, ev.title)}</div>"
+                         f"<div style='font-size:12px;color:{MUTED};margin-top:2px'>{meta}{who}</div>"
+                         f"<div style='margin-top:3px'>{''.join(_chip(r) for r in ev.reasons[:3])}</div></div>")
+        rows.append(_card("".join(items)))
+
     # --- Funding radar --------------------------------------------------------------
     others = [ev for ev in res.funding_seen if ev.company not in {l.company for l in res.leads}]
     if others:
@@ -203,7 +220,8 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
     rows.append(
         f"<tr><td style='padding:28px 0 8px;color:{MUTED};font-size:12px;border-top:1px solid {LINE}'>"
         f"Sources: company job boards (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable), "
-        f"funding news, Y Combinator ({res.yc_matches} on-profile startups tracked), HN Who's Hiring. "
+        f"funding news, Y Combinator ({res.yc_matches} on-profile startups tracked), HN Who's Hiring, Luma + "
+        f"Partiful events. "
         f"Tune what you see in profile.yaml and watchlist.yaml.</td></tr>")
 
     html_doc = (
@@ -222,6 +240,9 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
         text.append(f"- {sj.job.title} @ {sj.job.company} ({sj.job.location}) [{sj.score:.0f}]\n  {sj.job.url}")
         for c in sj.contacts:
             text.append(f"    -> {c.name} ({c.title}) {c.email or c.linkedin_url}\n       {c.email_body or c.message}")
+    if res.events:
+        text.append("\nEvents:")
+        text += [f"- {e.start.astimezone(TZ):%a %b %d} {e.title} ({e.venue}) {e.url}" for e in res.events]
     if res.leads:
         text.append("\nReach out:")
         text += [f"- {l.company}: {l.funding.headline if l.funding else ''}" for l in res.leads]

@@ -254,3 +254,10 @@ tracker:
   people_tab: Sheet2       # optional: Person | Company - counted as warm contacts
   feed_tab: Sourcer feed   # created automatically; new roles + leads are appended daily
   first_lookback_days: 150
+
+# Luma + Partiful events (Bay Area, in person preferred). Add keywords to boost topics.
+events:
+  max: 8               # per digest; events already sent aren't repeated
+  days_ahead: 21
+  min_score: 6
+  # keywords: {"recsys": 6}
