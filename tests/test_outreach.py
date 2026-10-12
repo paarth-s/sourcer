@@ -150,3 +150,14 @@ def test_template_fallback_without_api_key(monkeypatch, tmp_path):
     assert friend.contacts[0].name == "Sam Lee" and friend.contacts[0].first_degree
     assert friend.contacts[0].message.startswith("Hi Sam!") and "referring me" in friend.contacts[0].message
     assert len(friend.contacts) == 3
+
+
+def test_known_contact_with_email_gets_referral_email():
+    from sourcer.models import Connection
+    from sourcer.outreach import Target, template_contacts
+    k = Connection("Jo", "Ray", "Acme", "Referred you - email intro", email="jo@acme.com")
+    t = Target(company="Acme", role_title="Data Scientist", role_url="https://x/1", known=[k])
+    c = template_contacts(t, [], "Pat")[0]
+    assert c.email == "jo@acme.com" and c.first_degree
+    assert c.email_subject == "Referral for Data Scientist at Acme?"
+    assert c.email_body.startswith("Hi Jo,") and "https://x/1" in c.email_body and c.email_body.endswith("Pat")

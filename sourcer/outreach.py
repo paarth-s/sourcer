@@ -310,9 +310,14 @@ def template_contacts(t: Target, highlights: list[dict], sender: str) -> list[Co
                f"Happy to send my resume." if t.role_title else
                f"I saw the news about {t.company} and I'd love to learn whether they're building out "
                f"data/ML. {h['long']} Would you be open to a quick chat or an intro?")
-        out.append(Contact(name=k.name, title=k.position, why="you're connected", linkedin_url=k.url,
-                           verified=True, first_degree=True,
-                           message=f"Hi {first}! Hope you're doing well. {ask} Thanks!{sign}"))
+        c = Contact(name=k.name, title=k.position, why="you know them - ask for a referral", linkedin_url=k.url,
+                    email=getattr(k, "email", ""), verified=True, first_degree=True,
+                    message=f"Hi {first}! Hope you're doing well. {ask} Thanks!{sign}")
+        if c.email:
+            c.email_subject = (f"Referral for {t.role_title} at {t.company}?" if t.role_title
+                               else f"Quick question about {t.company}")
+            c.email_body = f"Hi {first},\n\nHope you're doing well! {ask}\n\nThanks so much,\n{sender}".rstrip()
+        out.append(c)
     if t.role_title:
         out.append(Contact(
             name="Hiring manager", title=f"data/analytics lead at {t.company}", placeholder=True,

@@ -71,6 +71,7 @@ class Connection:
     position: str
     url: str = ""
     connected_on: str = ""
+    email: str = ""
 
     @property
     def name(self) -> str:

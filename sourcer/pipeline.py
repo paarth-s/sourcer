@@ -166,7 +166,9 @@ def run(cfg: Config, *, skip_network_fetch: bool = False, mark_seen: bool = True
     # 5. Optional LLM refinement --------------------------------------------------
     threshold = profile.get("alert_threshold", 45)
     llm.rerank(res.new_jobs, profile)
-    res.new_jobs = sorted((j for j in res.new_jobs if j.score >= threshold), key=lambda x: -x.score)
+    warm_floor = profile.get("warm_threshold", threshold - 10)
+    res.new_jobs = sorted((j for j in res.new_jobs if j.score >= (warm_floor if j.connections else threshold)),
+                          key=lambda x: (not x.connections, -x.score))     # warm paths first
     if tracker is not None:
         from .tracker import already_tracked
         kept = [sj for sj in res.new_jobs if not already_tracked(sj.job.company, sj.job.title, tracker.rows)]
@@ -191,6 +193,7 @@ def score_and_store(jobs: list[Job], store: Store, network: Network,
     threshold = profile.get("alert_threshold", 45)
     # Allow slack below threshold so the LLM pass can promote near-misses.
     candidate_floor = threshold - 10 if llm.enabled() else threshold
+    warm_floor = profile.get("warm_threshold", threshold - 10)   # you know someone there
     new: list[ScoredJob] = []
     by_company: dict[str, list[Job]] = {}
     seen: set[str] = set()
@@ -203,7 +206,7 @@ def score_and_store(jobs: list[Job], store: Store, network: Network,
         funding = funding_by_key.get(job.company_key)
         score, reasons = score_job(job, profile, n_connections=len(conns), funding=funding, now=now)
         is_new = store.upsert_job(job, score)
-        if score < candidate_floor or store.was_alerted(job.uid):
+        if score < (min(candidate_floor, warm_floor) if conns else candidate_floor) or store.was_alerted(job.uid):
             continue
         if not (is_new or first_run or store.is_pending(job.uid)):
             continue
@@ -284,7 +287,7 @@ def prepare_outreach(cfg: Config, res: RunResult) -> None:
     """Key people + exact messages for the top roles (one per company) and top leads."""
     from .outreach import Target, prepare
     settings = cfg.profile.get("outreach") or {}
-    n_roles, n_leads = settings.get("roles", 5), settings.get("leads", 4)
+    n_roles, n_leads = settings.get("roles", 10), settings.get("leads", 5)
     pairs: list[tuple[object, Target]] = []
     seen: set[str] = set()
     for sj in res.new_jobs:

@@ -121,11 +121,18 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
         rows.append(_card("".join(parts)))
 
     # --- Roles ---------------------------------------------------------------------
-    rows.append(_section("Apply today", "New since yesterday, best fit first. Earlier applicants get read first."))
+    warm = [sj for sj in res.new_jobs if sj.connections]
+    if warm:
+        rows.append(_section(f"Warm paths: you know someone ({len(warm)})",
+                             "Apply, then send the referral ask below. A referral beats a cold application."))
+    else:
+        rows.append(_section("Apply today", "New since yesterday, best fit first. Earlier applicants get read first."))
     if not res.new_jobs:
         rows.append(_card(f"<div style='color:{MUTED}'>No new roles above your threshold today.</div>"))
     covered: set[str] = set()   # companies whose contacts were already shown above
-    for sj in res.new_jobs:
+    for i, sj in enumerate(res.new_jobs):
+        if warm and i == len(warm) and i < len(res.new_jobs):
+            rows.append(_section("Apply today", "Best fit first. Earlier applicants get read first."))
         j = sj.job
         meta = " &middot; ".join(x for x in (_e(j.company), _e(j.location), _age(j.posted_at, now)) if x)
         shown = [r for r in sj.reasons if not r.startswith("posted")]  # age is in the meta line

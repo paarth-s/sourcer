@@ -42,6 +42,7 @@ def parse_connections(text: str) -> list[Connection]:
             position=(row.get("Position") or "").strip(),
             url=(row.get("URL") or "").strip(),
             connected_on=(row.get("Connected On") or "").strip(),
+            email=(row.get("Email Address") or "").strip(),
         ))
     return out
 
@@ -55,8 +56,11 @@ class Network:
             for p in people or []:
                 name, pos = (p.get("name", ""), p.get("position", "warm contact")) if isinstance(p, dict) \
                     else (str(p), "warm contact")
-                self.by_company[normalize_company(company)].append(
-                    Connection(first_name=name, last_name="", company=company, position=pos))
+                key = normalize_company(company)
+                if any(c.name.split()[0].lower() == name.split()[0].lower() for c in self.by_company[key] if c.name
+                       and name):
+                    continue        # same person already known from an export / intro list
+                self.by_company[key].append(Connection(first_name=name, last_name="", company=company, position=pos))
         self.count = len(connections)
 
     @classmethod

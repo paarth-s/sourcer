@@ -249,7 +249,7 @@ def _tracker(cfg, *, write: bool):
     from .google import Google, configured, sheet_id_from
     sheet = sheet_id_from(os.environ.get("TRACKER_SHEET_ID", ""))
     if not (configured() and sheet):
-        return None
+        return _tracker_snapshot(cfg)
     from .db import Store
     from .tracker import sync
     store = Store(cfg.db_path)
@@ -260,6 +260,20 @@ def _tracker(cfg, *, write: bool):
         return None
     finally:
         store.close()
+
+
+def _tracker_snapshot(cfg):
+    """No Google access: read a CSV export of the tracker (data/Tracker.csv) so roles you've
+    already applied to are skipped and its Connection column counts as warm contacts."""
+    import csv
+    path = Path(os.environ.get("SOURCER_TRACKER_CSV", cfg.root / "data" / "Tracker.csv"))
+    if not path.exists():
+        return None
+    from .tracker import TrackerResult, TZ, followups, read_rows, warm_contacts
+    values = list(csv.reader(path.read_text(encoding="utf-8-sig").splitlines()))
+    _, rows, _ = read_rows(values)
+    fu, todo = followups(rows, datetime.now(TZ).date())
+    return TrackerResult(rows=rows, followups=fu, to_apply=todo, warm_contacts=warm_contacts(rows, []))
 
 
 def _append_feed(cfg, res) -> None:
