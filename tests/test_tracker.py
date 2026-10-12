@@ -210,3 +210,22 @@ def test_google_client_plumbing(monkeypatch):
     assert calls[0] == ("token", "refresh_token") and sum(c[0] == "token" for c in calls) == 1
     assert calls[-1][2]["data"][0] == {"range": "'Tab'!F2", "values": [["Rejected"]]}
     assert G.sheet_id_from("https://docs.google.com/spreadsheets/d/AbC-123_x/edit#gid=0") == "AbC-123_x"
+
+
+def test_event_holds_avoid_people_conflicts():
+    from datetime import timedelta
+    from sourcer.assist import plan_holds
+    from sourcer.sources.events import Event
+    d = lambda h, day=13: datetime(2026, 10, day, h, tzinfo=timezone(timedelta(hours=-7)))
+    cal = [{"summary": "Interview confirmation", "start": {"dateTime": d(17).isoformat()},
+            "end": {"dateTime": d(18).isoformat()}},
+           {"summary": "Coursework", "start": {"dateTime": d(19).isoformat()}, "end": {"dateTime": d(21).isoformat()}},
+           {"summary": "Coffee", "transparency": "transparent", "start": {"dateTime": d(17, 14).isoformat()},
+            "end": {"dateTime": d(18, 14).isoformat()}}]
+    ev = lambda t, start, day=13: Event(t, f"https://luma.com/{t}", d(start, day), "SF", "", "luma",
+                                       end=d(start + 2, day))
+    picked, skipped = plan_holds([ev("a", 18), ev("b", 19), ev("c", 20), ev("d", 17, 14), ev("e", 17, 15)],
+                                 cal, already={"luma:https://luma.com/e"})
+    assert [e.title for e in picked] == ["b", "d"]            # b ok (Coursework is a self-block)
+    assert [why for _, why in skipped][0].startswith("conflicts with 'Interview")
+    assert any("another event that day" in w for _, w in skipped)    # c: same evening as b

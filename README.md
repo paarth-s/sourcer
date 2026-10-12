@@ -195,6 +195,13 @@ Setup, about 10 minutes, once:
    secrets, plus `TRACKER_SHEET_ID` (the long id in the sheet's URL).
 6. Optional: `python -m sourcer tracker --dry-run` locally shows what it would change.
 
+The same login also lets the nightly run put recommended events on your calendar as yellow,
+non-blocking "[Sourcer pick? keep/delete]" holds. Keep one to approve it and RSVP with the link
+inside; delete it to say no. Holds skip anything that clashes with a meeting, call or interview
+with other people (with a 30-minute buffer). The run also saves every drafted outreach email as
+a **Gmail draft**: Sourcer never sends mail itself. Partiful and Luma RSVPs need your own login,
+so they stay one-click links.
+
 Tab names are set under `tracker:` in `profile.yaml`. Access is Gmail **read-only**, and only
 counts are printed to the (public) Actions log.
 

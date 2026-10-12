@@ -118,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
             from .pipeline import mark_delivered
             mark_delivered(cfg, res)
             _append_feed(cfg, res)
+            _assist(cfg, res)
             store = Store(cfg.db_path)
             store.set_meta("last_daily_email", today)
             store.close()
@@ -274,6 +275,27 @@ def _tracker_snapshot(cfg):
     _, rows, _ = read_rows(values)
     fu, todo = followups(rows, datetime.now(TZ).date())
     return TrackerResult(rows=rows, followups=fu, to_apply=todo, warm_contacts=warm_contacts(rows, []))
+
+
+def _assist(cfg, res) -> None:
+    """Calendar holds for events + Gmail drafts for outreach emails (needs Google access)."""
+    from .google import Google, configured
+    if not configured():
+        return
+    from .assist import draft_emails, hold_events
+    from .db import Store
+    g, store = Google(), Store(cfg.db_path)
+    try:
+        held, skipped = hold_events(g, res.events, store)
+        print(f"calendar: {held} event holds added, {len(skipped)} skipped for conflicts")
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("sourcer").error("calendar holds failed: %s", type(e).__name__)
+    try:
+        print(f"gmail: {draft_emails(g, res, store)} outreach drafts created")
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("sourcer").error("gmail drafts failed: %s", type(e).__name__)
+    finally:
+        store.close()
 
 
 def _append_feed(cfg, res) -> None:

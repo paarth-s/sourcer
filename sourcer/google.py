@@ -18,9 +18,12 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import requests
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly",
-          "https://www.googleapis.com/auth/spreadsheets"]
+          "https://www.googleapis.com/auth/gmail.compose",        # drafts only - Sourcer never sends
+          "https://www.googleapis.com/auth/spreadsheets",
+          "https://www.googleapis.com/auth/calendar.events"]
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me"
+CAL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
 SHEETS = "https://sheets.googleapis.com/v4/spreadsheets"
 
 
@@ -83,6 +86,30 @@ class Google:
                 "sender": headers.get("from", ""), "to": headers.get("to", ""),
                 "subject": headers.get("subject", ""), "body": _plain_text(m.get("payload", {})),
                 "labels": m.get("labelIds", [])}
+
+    def gmail_draft(self, to: str, subject: str, body: str) -> str:
+        from email.mime.text import MIMEText
+        m = MIMEText(body)
+        m["To"], m["Subject"] = to, subject
+        raw = base64.urlsafe_b64encode(m.as_bytes()).decode()
+        return self._send("POST", f"{GMAIL}/drafts", {"message": {"raw": raw}}).get("id", "")
+
+    # --- Calendar -------------------------------------------------------------------
+    def calendar_events(self, start_iso: str, end_iso: str) -> list[dict]:
+        out, token = [], None
+        while True:
+            params = {"timeMin": start_iso, "timeMax": end_iso, "singleEvents": "true", "orderBy": "startTime",
+                      "maxResults": 250}
+            if token:
+                params["pageToken"] = token
+            data = self._get(CAL, **params)
+            out += data.get("items", [])
+            token = data.get("nextPageToken")
+            if not token:
+                return out
+
+    def calendar_create(self, event: dict) -> dict:
+        return self._send("POST", CAL, event)
 
     # --- Sheets ---------------------------------------------------------------------
     def sheet_tabs(self, sheet_id: str) -> list[str]:

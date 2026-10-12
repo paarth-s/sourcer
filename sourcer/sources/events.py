@@ -62,6 +62,7 @@ class Event:
     score: float = 0.0
     reasons: list[str] = field(default_factory=list)
     known_hosts: list[str] = field(default_factory=list)
+    end: datetime | None = None
 
     @property
     def uid(self) -> str:
@@ -111,6 +112,7 @@ def _luma_feed(s: requests.Session, base: dict, pages: int, days: int) -> list[E
                 venue=geo.get("city_state") or geo.get("short_address") or ("Online" if ev.get("location_type") ==
                                                                              "online" else ""),
                 organizer=cal.get("name", ""), source="luma", guests=x.get("guest_count") or 0,
+                end=_dt(ev.get("end_at")),
                 online=ev.get("location_type") == "online",
                 hosts=[p.get("name", "") for p in people if p.get("name")],
                 text=" ".join([cal.get("description_short") or ""] + [p.get("bio_short") or "" for p in people])))
@@ -146,7 +148,7 @@ def fetch_partiful(s: requests.Session, city: str = "sf") -> list[Event]:
         out.append(Event(
             title=ev.get("title", ""), url=f"https://partiful.com/e/{ev['id']}", start=start,
             venue=", ".join(filter(None, [maps.get("name"), maps.get("approximateLocation")])) or
-            loc.get("neighborhood", ""), organizer="", source="partiful",
+            loc.get("neighborhood", ""), organizer="", source="partiful", end=_dt(ev.get("endDate")),
             guests=(ev.get("goingGuestCount") or 0) + (ev.get("approvedGuestCount") or 0),
             text=f"{ev.get('description') or ''} {' '.join(map(str, it.get('tags') or []))}"))
     return out
