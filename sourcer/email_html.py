@@ -101,7 +101,7 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
         f"<tr><td style='padding:8px 0 4px'><div style='font-size:22px;font-weight:700;color:{INK}'>"
         f"Your job sourcing digest</div><div style='color:{MUTED};font-size:13px;margin-top:4px'>"
         f"{local:%A, %B %d} &middot; {res.roles_scanned:,} roles scanned across {res.boards_polled} job boards"
-        f"{f' &middot; {res.network_size:,} LinkedIn connections' if res.network_size else ''}</div></td></tr>")
+        f"{f' &middot; {res.network_size:,} people you know' if res.network_size else ''}</div></td></tr>")
 
     # --- Tracker (Google Sheet) ------------------------------------------------------
     if res.followups or res.tracker_changes or res.to_apply:

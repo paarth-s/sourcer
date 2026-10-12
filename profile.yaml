@@ -96,6 +96,10 @@ exclude_titles:
   - deal desk
   - business systems
   - capture
+  - entry-level
+  - entry level
+  - new grad
+  - safety management
 
 # Senior-but-reachable: shown, but scored down 10 and labeled "stretch level".
 stretch_titles:

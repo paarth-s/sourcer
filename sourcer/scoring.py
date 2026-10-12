@@ -23,6 +23,8 @@ def _hits(text: str, terms: list[str]) -> list[str]:
 
 def title_match(title: str, profile: dict) -> tuple[float, list[str]]:
     t = title.lower()
+    if re.match(r"\s*https?://", t):
+        return 0.0, []      # a scraped posting whose "title" is a URL
     if _hits(t, profile.get("exclude_titles", [])):
         return 0.0, []
     tt = profile.get("target_titles", {})
