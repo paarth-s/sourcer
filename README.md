@@ -202,6 +202,19 @@ with other people (with a 30-minute buffer). The run also saves every drafted ou
 a **Gmail draft**: Sourcer never sends mail itself. Partiful and Luma RSVPs need your own login,
 so they stay one-click links.
 
+**If your school or work account blocks third-party apps** ("Access blocked: your administrator…"),
+authorize a personal Gmail account instead and:
+- share the tracker sheet with it (Editor);
+- share your school calendar with it ("See all event details"), and set the `SOURCER_CALENDAR_ID`
+  secret to the school address, so events that clash with meetings are left out;
+- optionally auto-forward recruiting mail from school to it, so the tracker sync sees it.
+
+The digest still works with your school account directly. Every outreach email has an
+**Open in Gmail** button that opens a ready-to-send compose window in that account, and every
+event has **+ Add to my calendar** (approve) and **RSVP** links. The account comes from
+`SOURCER_GOOGLE_ACCOUNT`, or the digest recipient by default. Drafts and holds created through the
+API are off by default (`assist:` in `profile.yaml`), because they'd land in the personal account.
+
 Tab names are set under `tracker:` in `profile.yaml`. Access is Gmail **read-only**, and only
 counts are printed to the (public) Actions log.
 

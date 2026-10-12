@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import html
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from .links import gcal_add, gmail_compose
 from .pipeline import RunResult
 
 TZ = ZoneInfo("America/Los_Angeles")
@@ -75,6 +76,10 @@ def _contacts_html(contacts: list) -> str:
                    f"<div style='color:{MUTED}'>{_e(c.why)} &middot; {where}</div>")
         if c.email and c.email_body:
             out.append(_box(f"Email subject: {c.email_subject}", c.email_body))
+            url = gmail_compose(c.email, c.email_subject, c.email_body)
+            out.append(f"<div style='margin-top:6px'><a href='{_e(url)}' style='display:inline-block;background:"
+                       f"{ACCENT};color:#fff;text-decoration:none;border-radius:6px;padding:6px 12px;font-size:13px'>"
+                       f"Open in Gmail, ready to send</a></div>")
         else:
             if c.connection_note and not c.first_degree:
                 out.append(_box("LinkedIn connection note", c.connection_note))
@@ -201,8 +206,13 @@ def render_email(res: RunResult, now: datetime | None = None) -> tuple[str, str,
             meta = " &middot; ".join(x for x in (f"{when:%a %b %d, %-I:%M %p}", _e(ev.venue),
                                                   f"{ev.guests} going" if ev.guests else "",
                                                   _e(ev.organizer)) if x)
+            add = gcal_add(ev.title, ev.start, ev.end or ev.start + timedelta(hours=2),
+                           f"Suggested by Sourcer. RSVP: {ev.url}", f"{ev.venue} ({ev.url})")
+            clear = " &middot; no conflicts with your meetings" if ev.checked else ""
             items.append(f"<div style='padding:7px 0;border-bottom:1px solid {LINE}'>"
                          f"<div style='font-size:14px'>{_link(ev.url, ev.title)}</div>"
+                         f"<div style='font-size:12px;margin-top:3px'>{_link(add, '+ Add to my calendar')} "
+                         f"&middot; {_link(ev.url, 'RSVP')}<span style='color:{MUTED}'>{clear}</span></div>"
                          f"<div style='font-size:12px;color:{MUTED};margin-top:2px'>{meta}{who}</div>"
                          f"<div style='margin-top:3px'>{''.join(_chip(r) for r in ev.reasons[:3])}</div></div>")
         rows.append(_card("".join(items)))

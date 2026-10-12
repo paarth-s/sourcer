@@ -63,6 +63,7 @@ class Event:
     reasons: list[str] = field(default_factory=list)
     known_hosts: list[str] = field(default_factory=list)
     end: datetime | None = None
+    checked: bool = False           # compared against your calendar, no clash
 
     @property
     def uid(self) -> str:

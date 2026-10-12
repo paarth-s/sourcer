@@ -200,7 +200,26 @@ def find_events(cfg: Config, store: Store, network: Network) -> list:
     people = {c.name for cs in network.by_company.values() for c in cs if c.name}
     sent = set((store.get_meta("events_sent") or "").split("\n"))
     scored = [e for e in score_events(raw, cfg.profile, people) if e.uid not in sent]
+    scored = drop_conflicts(scored)
     return scored[:(cfg.profile.get("events") or {}).get("max", 8)]
+
+
+def drop_conflicts(events: list) -> list:
+    """With Google access, leave out events that clash with meetings/interviews on your calendar."""
+    from .google import Google, configured
+    if not events or not configured():
+        return events
+    from .assist import plan_holds
+    try:
+        now = datetime.now(timezone.utc)
+        cal = Google().calendar_events(now.isoformat(), (max(e.start for e in events) + timedelta(days=1)).isoformat())
+    except Exception as e:  # noqa: BLE001
+        log.warning("calendar check failed: %s", type(e).__name__)
+        return events
+    ok, _ = plan_holds(events, cal, set(), one_per_day=False)
+    for e in ok:
+        e.checked = True
+    return ok
 
 
 def score_and_store(jobs: list[Job], store: Store, network: Network,

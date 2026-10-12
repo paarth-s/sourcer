@@ -114,6 +114,7 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           TRACKER_SHEET_ID: ${{ secrets.TRACKER_SHEET_ID }}
+          SOURCER_CALENDAR_ID: ${{ secrets.SOURCER_CALENDAR_ID }}
         run: python -m sourcer run --daily ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }} 2> data/run.log
 
       - name: Preview email
@@ -124,6 +125,7 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           TRACKER_SHEET_ID: ${{ secrets.TRACKER_SHEET_ID }}
+          SOURCER_CALENDAR_ID: ${{ secrets.SOURCER_CALENDAR_ID }}
         run: python -m sourcer run --preview 2> data/run.log
 
       - name: Show errors

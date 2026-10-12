@@ -36,7 +36,8 @@ def _with_people(e: dict) -> bool:
     return bool(others) or bool(PEOPLE.search(e.get("summary") or ""))
 
 
-def plan_holds(events: list, calendar: list[dict], already: set[str]) -> tuple[list, list[tuple[object, str]]]:
+def plan_holds(events: list, calendar: list[dict], already: set[str], *, one_per_day: bool = True
+               ) -> tuple[list, list[tuple[object, str]]]:
     """-> (events to hold, [(event, reason skipped)])."""
     busy = [(s, en, e.get("summary", "")) for e in calendar if _with_people(e)
             for s, en in [(_when(e, "start"), _when(e, "end"))] if s and en]
@@ -50,7 +51,7 @@ def plan_holds(events: list, calendar: list[dict], already: set[str]) -> tuple[l
             skipped.append((ev, f"conflicts with '{clash}'"))
             continue
         night = start.astimezone(timezone(timedelta(hours=-8))).date()
-        if night in nights:
+        if one_per_day and night in nights:
             skipped.append((ev, "already holding another event that day"))
             continue
         nights.add(night)

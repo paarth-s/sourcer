@@ -265,3 +265,10 @@ events:
   days_ahead: 21
   min_score: 6
   # keywords: {"recsys": 6}
+
+# What the nightly run may do in the Google account it's authorized for (`sourcer google-auth`).
+# Off by default: if that's a personal account but you work from a school/work one, the digest's
+# one-click "Open in Gmail" / "Add to my calendar" links open in the right account instead.
+assist:
+  gmail_drafts: false     # save outreach emails as drafts in the authorized Gmail
+  calendar_holds: false   # put event picks on the authorized account's calendar

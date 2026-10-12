@@ -23,7 +23,13 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.readonly",
           "https://www.googleapis.com/auth/calendar.events"]
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me"
-CAL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+CAL = "https://www.googleapis.com/calendar/v3/calendars/{cal}/events"
+
+
+def calendar_id() -> str:
+    """Calendar to check for conflicts / hold events on: SOURCER_CALENDAR_ID (e.g. a school calendar
+    shared with the authorized account), else the authorized account's primary calendar."""
+    return os.environ.get("SOURCER_CALENDAR_ID") or "primary"
 SHEETS = "https://sheets.googleapis.com/v4/spreadsheets"
 
 
@@ -102,14 +108,14 @@ class Google:
                       "maxResults": 250}
             if token:
                 params["pageToken"] = token
-            data = self._get(CAL, **params)
+            data = self._get(CAL.format(cal=urllib.parse.quote(calendar_id())), **params)
             out += data.get("items", [])
             token = data.get("nextPageToken")
             if not token:
                 return out
 
     def calendar_create(self, event: dict) -> dict:
-        return self._send("POST", CAL, event)
+        return self._send("POST", CAL.format(cal="primary"), event)
 
     # --- Sheets ---------------------------------------------------------------------
     def sheet_tabs(self, sheet_id: str) -> list[str]:

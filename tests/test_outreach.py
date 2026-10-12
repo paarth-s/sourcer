@@ -161,3 +161,17 @@ def test_known_contact_with_email_gets_referral_email():
     assert c.email == "jo@acme.com" and c.first_degree
     assert c.email_subject == "Referral for Data Scientist at Acme?"
     assert c.email_body.startswith("Hi Jo,") and "https://x/1" in c.email_body and c.email_body.endswith("Pat")
+
+
+def test_one_click_links(monkeypatch):
+    from datetime import datetime, timezone
+    from urllib.parse import parse_qs, urlparse
+    from sourcer.links import gcal_add, gmail_compose
+    monkeypatch.setenv("DIGEST_EMAIL_TO", "me@school.edu, other@x.com")
+    q = parse_qs(urlparse(gmail_compose("jo@acme.com", "Hi & hello", "Line 1\nLine 2")).query)
+    assert q["to"] == ["jo@acme.com"] and q["su"] == ["Hi & hello"] and q["body"] == ["Line 1\nLine 2"]
+    assert q["authuser"] == ["me@school.edu"] and q["view"] == ["cm"]
+    u = gcal_add("Meetup", datetime(2026, 10, 14, 0, 30, tzinfo=timezone.utc),
+                 datetime(2026, 10, 14, 2, 30, tzinfo=timezone.utc), "RSVP: x", "SF")
+    q = parse_qs(urlparse(u).query)
+    assert q["dates"] == ["20261014T003000Z/20261014T023000Z"] and q["authuser"] == ["me@school.edu"]
