@@ -42,6 +42,7 @@ class RunResult:
     to_apply: list[str] = field(default_factory=list)
     skipped_tracked: int = 0
     events: list = field(default_factory=list)          # sources.events.Event
+    all_scored: list[ScoredJob] = field(default_factory=list)   # every posting scored this run (auto-apply pool)
 
 
 def _register_companies(cfg: Config, store: Store, network: Network,
@@ -156,7 +157,7 @@ def run(cfg: Config, *, skip_network_fetch: bool = False, mark_seen: bool = True
 
     res.roles_scanned = len(all_jobs)
     res.new_jobs, open_by_company = score_and_store(
-        all_jobs, store, network, funding_by_key, profile, first_run=first_run, now=now)
+        all_jobs, store, network, funding_by_key, profile, first_run=first_run, now=now, collect=res.all_scored)
     notes = store.notes()
     for sj in res.new_jobs:
         sj.context = notes.get(sj.job.company_key, "")
@@ -224,7 +225,7 @@ def drop_conflicts(events: list) -> list:
 
 def score_and_store(jobs: list[Job], store: Store, network: Network,
                     funding_by_key: dict[str, FundingEvent], profile: dict, *,
-                    first_run: bool, now: datetime):
+                    first_run: bool, now: datetime, collect: list | None = None):
     """Score every posting, persist it, and return (new alert-worthy jobs, jobs by company)."""
     threshold = profile.get("alert_threshold", 45)
     # Allow slack below threshold so the LLM pass can promote near-misses.
@@ -242,6 +243,8 @@ def score_and_store(jobs: list[Job], store: Store, network: Network,
         funding = funding_by_key.get(job.company_key)
         score, reasons = score_job(job, profile, n_connections=len(conns), funding=funding, now=now)
         is_new = store.upsert_job(job, score)
+        if collect is not None:
+            collect.append(ScoredJob(job=job, score=score, reasons=reasons, connections=conns, funding=funding))
         if score < (min(candidate_floor, warm_floor) if conns else candidate_floor) or store.was_alerted(job.uid):
             continue
         if not (is_new or first_run or store.is_pending(job.uid)):

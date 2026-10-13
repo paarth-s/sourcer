@@ -400,7 +400,8 @@ def _preview(cfg) -> int:
             con.commit()
             con.close()
         os.environ["SOURCER_DB"] = str(scratch)
-        res = run(cfg, mark_seen=False, tracker=_tracker(cfg, write=False))
+        tr = _tracker(cfg, write=False)
+        res = run(cfg, mark_seen=False, tracker=tr)
         res.packets = []
         subject, html_body, text = render_email(res)
         subject = "[Preview] " + subject
@@ -408,7 +409,12 @@ def _preview(cfg) -> int:
         (cfg.reports_dir / "preview-email.html").write_text(html_body)
         import json
         from .apply import roles_payload
-        (cfg.reports_dir / "roles.json").write_text(json.dumps(roles_payload(res.new_jobs), indent=1))
+        floor = (cfg.profile.get("autoapply") or {}).get("min_score", 30)
+        pool = [sj for sj in res.all_scored if sj.score >= floor]
+        if tr is not None:
+            from .tracker import already_tracked
+            pool = [sj for sj in pool if not already_tracked(sj.job.company, sj.job.title, tr.rows)]
+        (cfg.reports_dir / "roles.json").write_text(json.dumps(roles_payload(pool), indent=1))
         for fn in (send_resend, send_smtp):
             try:
                 if fn(subject, html_body, text):
