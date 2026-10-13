@@ -67,6 +67,26 @@ def main(argv: list[str] | None = None) -> int:
     x.add_argument("raw", help="file with get_draft RAW output (JSON or the raw string)")
     x.add_argument("pdf")
 
+    aa = sub.add_parser("autoapply", help="prepare / submit applications to no-connection roles")
+    aas = aa.add_subparsers(dest="aa_cmd", required=True)
+    x = aas.add_parser("select", help="pick good-fit roles with no connection from reports/roles.json")
+    x.add_argument("--roles", default="reports/roles.json"), x.add_argument("-o", "--out", required=True)
+    x.add_argument("--exclude", help="file of role IDs already queued/declined (one per line)")
+    x.add_argument("--max", type=int, default=15)
+    x = aas.add_parser("scan", help="read each queued form and fill the standard answers")
+    x.add_argument("queue"), x.add_argument("--facts", required=True)
+    x = aas.add_parser("doc", help="queue + tailored resumes -> review Doc HTML")
+    x.add_argument("queue"), x.add_argument("-o", "--out", required=True)
+    x.add_argument("--resumes", required=True, help="dir with <slug>.json tailored resumes")
+    x.add_argument("--date", default=datetime.now().strftime("%Y-%m-%d"))
+    x = aas.add_parser("submit", help="submit approved applications from the review Doc's text")
+    x.add_argument("doc", help="the review Doc's text (Drive read_file_content), saved to a file")
+    x.add_argument("--facts", required=True)
+    x.add_argument("--base-dir", default="private", help="dir with base_ds.json / base_mle.json")
+    x.add_argument("--only", default="", help="application numbers to submit, e.g. '1 3 5' (default: all READY)")
+    x.add_argument("--out", default="private/apply/results.json")
+    x.add_argument("--dry-run", action="store_true", help="fill the forms and screenshot them, don't submit")
+
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,
                         format="%(levelname)s %(name)s: %(message)s")
@@ -213,6 +233,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {n:3d}  {company}")
         print("For scheduled runs: gzip -c data/Contacts.csv | base64 | gh secret set CONTACTS_B64")
         return 0
+
+    if args.cmd == "autoapply":
+        from .autoapply_cli import main as aa_main
+        return aa_main(args)
 
     if args.cmd == "resume-pdf":
         import base64
@@ -382,6 +406,9 @@ def _preview(cfg) -> int:
         subject = "[Preview] " + subject
         cfg.reports_dir.mkdir(exist_ok=True)
         (cfg.reports_dir / "preview-email.html").write_text(html_body)
+        import json
+        from .apply import roles_payload
+        (cfg.reports_dir / "roles.json").write_text(json.dumps(roles_payload(res.new_jobs), indent=1))
         for fn in (send_resend, send_smtp):
             try:
                 if fn(subject, html_body, text):
