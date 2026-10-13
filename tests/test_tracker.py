@@ -247,3 +247,15 @@ def test_build_tracker_from_gmail_only():
     assert rows[0][0] == "Job Title"
     got = {r[1]: r[5] for r in rows[1:]}
     assert got["Zentra"] == "Rejected" and got["Acmebank"] == "First Round"
+
+
+def test_tracker_build_cli(tmp_path):
+    import json
+    from sourcer.cli import main
+    msgs = tmp_path / "m.json"
+    msgs.write_text(json.dumps([{"id": "1", "sender": "no-reply@ashbyhq.com", "subject": "Thanks for applying to Zentra!",
+                                 "snippet": "Thanks for applying to Zentra! We received your application for the "
+                                            "Data Scientist role.", "date": "2026-09-01T18:00:00Z"}]))
+    out = tmp_path / "Tracker.csv"
+    assert main(["--root", str(tmp_path), "tracker-build", str(msgs), "--out", str(out)]) == 0
+    assert "Zentra" in out.read_text()

@@ -225,8 +225,6 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "apply":
-        from pathlib import Path
-
         from .models import Job
         from .sources.postings import fetch_posting, questions_from_text
         from .tailor import load_facts, prepare_application
