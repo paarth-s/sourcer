@@ -105,13 +105,16 @@ exclude_titles:
 stretch_titles:
   - principal
   - distinguished
+  - staff
 
 # Seniority you'd consider. Postings with these words get a small bonus (+5).
 seniority_bonus:
   - senior
-  - staff
   - founding
-  - lead
+
+# Your years of experience. Postings that ask for about this much rank higher; ones asking
+# for much more ("6+ years") are scored down and labeled.
+experience_years: [2, 3]
 
 # Domain expertise - matched against job description and funding news text.
 domains:

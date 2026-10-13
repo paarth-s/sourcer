@@ -93,3 +93,16 @@ def test_broad_titles_skip_finance_and_eng(profile):
     assert score_job(job("Principal, Strategic Finance & Analytics", analytic), profile, now=NOW)[0] == 0
     assert score_job(job("Staff Engineer - Experimentation Platform", analytic), profile, now=NOW)[0] == 0
     assert score_job(job("Lead Advanced Analytics, Product", analytic), profile, now=NOW)[0] >= 45
+
+
+def test_years_of_experience_fit():
+    from sourcer.scoring import required_years, yoe_fit
+    prof = {"experience_years": [2, 3]}
+    assert required_years("Requirements: 2-4 years of relevant industry experience") == 2
+    assert required_years("Minimum of 6 years in analytics") == 6
+    assert required_years("PhD or 4+ years of work experience; MS + 2 years experience") == 2
+    assert required_years("Founded 10 years ago.") is None
+    assert yoe_fit("3+ years of experience with Python", prof)[0] > 0
+    assert yoe_fit("4+ years of experience", prof)[0] < 0
+    pts, label = yoe_fit("8+ years of industry experience", prof)
+    assert pts <= -25 and "well above" in label

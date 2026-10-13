@@ -88,6 +88,37 @@ def location_ok(location: str, profile: dict, title: str = "") -> bool:
     return any(_has(loc, p.lower()) for p in prefs)
 
 
+_YOE = re.compile(r"(?<![\d.])(\d{1,2})\s*(?:\+|plus)?\s*(?:(?:-|–|to)\s*(\d{1,2})\s*)?\+?\s*(?:years?|yrs?)\b"
+                  r"(?:\W+\w+){0,6}?\W+(?:of\s+)?(?:\w+\s+){0,4}?(?:experience|exp\b)", re.I)
+_YOE_BEFORE = re.compile(r"(?:minimum|at least|min\.?)\s+(?:of\s+)?(\d{1,2})\s*\+?\s*years?", re.I)
+
+
+def required_years(text: str) -> int | None:
+    """Smallest 'N+ years ... experience' requirement in a posting (the bar to clear), or None."""
+    found = [int(m.group(1)) for m in _YOE.finditer(text or "")]
+    found += [int(m.group(1)) for m in _YOE_BEFORE.finditer(text or "")]
+    found = [n for n in found if 0 < n <= 20]
+    return min(found) if found else None
+
+
+def yoe_fit(text: str, profile: dict) -> tuple[float, str]:
+    """Points + label for how a posting's experience ask compares with yours."""
+    yours = profile.get("experience_years")
+    if yours is None:
+        return 0.0, ""
+    lo, hi = (yours if isinstance(yours, (list, tuple)) else (yours, yours))
+    req = required_years(text)
+    if req is None:
+        return 0.0, ""
+    if req <= hi:
+        return 8.0, f"asks {req}+ yrs - fits your experience"
+    if req == hi + 1:
+        return -3.0, f"asks {req}+ yrs"
+    if req <= hi + 3:
+        return -12.0, f"asks {req}+ yrs (stretch)"
+    return -25.0, f"asks {req}+ yrs (well above yours)"
+
+
 def score_job(job: Job, profile: dict, *, n_connections: int = 0,
               funding: FundingEvent | None = None,
               now: datetime | None = None) -> tuple[float, list[str]]:
@@ -117,6 +148,10 @@ def score_job(job: Job, profile: dict, *, n_connections: int = 0,
 
     if _hits(job.title.lower(), profile.get("seniority_bonus", [])):
         score += 5
+    ypts, ylabel = yoe_fit(job.description, profile)
+    if ylabel:
+        score += ypts
+        reasons.append(ylabel)
 
     if location_excluded(job.location, profile, job.title):
         return 0.0, []  # role is in a region you can't work in
