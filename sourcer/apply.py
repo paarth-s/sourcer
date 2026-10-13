@@ -29,7 +29,7 @@ FAMILY = re.compile(r"data scien|machine learning|\bml\b|\bmle\b|\bai\b|artifici
                     r"decision scien|research engineer|inference|modeling", re.I)
 ROLE = re.compile(r"scien|engineer|\bmle\b|developer", re.I)
 NOT_FOR_YOU = re.compile(r"\b(staff|principal|lead|manager|management|director|head|vp|vice president|intern|"
-                         r"internship|new grad|graduate program|distinguished|architect|sales|solutions?|"
+                         r"internship|new grad|graduate program|(university|college|campus) grad\w*|early[- ]career|entry[- ]level|residency|apprentice|distinguished|architect|sales|solutions?|"
                          r"support|recruit\w*|product manager|analyst|contract|part[- ]time|postdoc|fellow)\b",
                          re.I)
 SENIOR = re.compile(r"\b(senior|sr\.?)\b", re.I)

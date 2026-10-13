@@ -28,6 +28,7 @@ def test_fit_rules():
     assert not ap.is_fit(role(location="Remote - US"))[0]
     assert not ap.is_fit(role(title="Staff Data Scientist"))[0]
     assert not ap.is_fit(role(title="Data Analyst"))[0]
+    assert not ap.is_fit(role(title="Master's University Grad Data Scientist (USA)"))[0]
     assert not ap.is_fit(role(title="Software Engineer, Payments"))[0]   # not DS/ML/AI
     assert not ap.is_fit(role(required_years=6))[0]
     assert not ap.is_fit(role(title="Senior Data Scientist", required_years=None))[0]
