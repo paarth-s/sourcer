@@ -56,6 +56,17 @@ def main(argv: list[str] | None = None) -> int:
     rv = sub.add_parser("resume", help="render a base resume variant (sanity-check the bank)")
     rv.add_argument("--variant", choices=["ds", "mle", "product"], default="ds")
 
+    rp = sub.add_parser("resume-pdf", help="compact one-page resume PDF for email attachments")
+    rps = rp.add_subparsers(dest="rp_cmd", required=True)
+    x = rps.add_parser("parse", help="resume doc plain text -> JSON")
+    x.add_argument("text"), x.add_argument("-o", "--out", required=True)
+    x = rps.add_parser("render", help="JSON -> one-page PDF (+ .b64 next to it)")
+    x.add_argument("json"), x.add_argument("-o", "--out", required=True)
+    x.add_argument("--base", help="base resume JSON: refuse the render if tailoring invented facts")
+    x = rps.add_parser("verify", help="check a draft's attached PDF matches the rendered file")
+    x.add_argument("raw", help="file with get_draft RAW output (JSON or the raw string)")
+    x.add_argument("pdf")
+
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,
                         format="%(levelname)s %(name)s: %(message)s")
@@ -202,6 +213,29 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {n:3d}  {company}")
         print("For scheduled runs: gzip -c data/Contacts.csv | base64 | gh secret set CONTACTS_B64")
         return 0
+
+    if args.cmd == "resume-pdf":
+        import base64
+        import json
+        from . import resume_pdf as rp
+        if args.rp_cmd == "parse":
+            r = rp.parse_text(Path(args.text).read_text())
+            Path(args.out).write_text(json.dumps(r, indent=1, ensure_ascii=False))
+            print(f"{args.out}: {len(r['experience'])} roles, "
+                  f"{sum(len(x['bullets']) for x in r['experience'])} bullets")
+            return 0
+        if args.rp_cmd == "render":
+            r = json.loads(Path(args.json).read_text())
+            if args.base and (problems := rp.check(r, json.loads(Path(args.base).read_text()))):
+                print("NOT RENDERED - fix these against the base resume:\n  " + "\n  ".join(problems))
+                return 2
+            info = rp.render(r, args.out)
+            Path(args.out + ".b64").write_text(base64.b64encode(Path(args.out).read_bytes()).decode())
+            print(json.dumps(info))
+            return 0 if info["pages"] == 1 else 3
+        ok, msg = rp.verify(Path(args.raw).read_text(), args.pdf)
+        print(("OK: " if ok else "MISMATCH: ") + msg)
+        return 0 if ok else 4
 
     if args.cmd == "selftest":
         from .selftest import run as selftest

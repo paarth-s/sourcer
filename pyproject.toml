@@ -10,7 +10,8 @@ dependencies = [
 
 [project.optional-dependencies]
 llm = ["anthropic>=1.0"]
-dev = ["pytest>=8"]
+resume = ["reportlab>=4.0"]
+dev = ["pytest>=8", "reportlab>=4.0"]
 
 [project.scripts]
 sourcer = "sourcer.cli:main"
