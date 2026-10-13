@@ -104,3 +104,164 @@ companies:
     workday: https://generalmotors.wd5.myworkdayjobs.com/Careers_GM
   # Not scannable automatically - check by hand: Meta, Google, LinkedIn, Oracle,
   # Indeed, U.S. Bank, PG&E, Scribd, Mojo Vision, Optilogic
+
+  # --- Bay Area DS / ML / AI employers (pool for auto-apply; found by board discovery) ---
+  - name: Stripe
+    ats: greenhouse
+    slug: stripe
+  - name: Lyft
+    ats: greenhouse
+    slug: lyft
+  - name: Pinterest
+    ats: greenhouse
+    slug: pinterest
+  - name: Figma
+    ats: greenhouse
+    slug: figma
+  - name: Notion
+    ats: ashby
+    slug: notion
+  - name: Discord
+    ats: greenhouse
+    slug: discord
+  - name: Robinhood
+    ats: greenhouse
+    slug: robinhood
+  - name: Plaid
+    ats: ashby
+    slug: plaid
+  - name: Brex
+    ats: greenhouse
+    slug: brex
+  - name: Gusto
+    ats: greenhouse
+    slug: gusto
+  - name: Samsara
+    ats: greenhouse
+    slug: samsara
+  - name: Scale AI
+    ats: greenhouse
+    slug: scaleai
+  - name: Anthropic
+    ats: greenhouse
+    slug: anthropic
+  - name: Asana
+    ats: greenhouse
+    slug: asana
+  - name: Chime
+    ats: greenhouse
+    slug: chime
+  - name: Faire
+    ats: greenhouse
+    slug: faire
+  - name: Benchling
+    ats: ashby
+    slug: benchling
+  - name: Verkada
+    ats: greenhouse
+    slug: verkada
+  - name: Nuro
+    ats: greenhouse
+    slug: nuro
+  - name: Zoox
+    ats: lever
+    slug: zoox
+  - name: Snorkel AI
+    ats: greenhouse
+    slug: snorkelai
+  - name: Harvey
+    ats: ashby
+    slug: harvey
+  - name: Character.AI
+    ats: ashby
+    slug: character
+  - name: Vercel
+    ats: greenhouse
+    slug: vercel
+  - name: Mercury
+    ats: greenhouse
+    slug: mercury
+  - name: Wealthfront
+    ats: lever
+    slug: wealthfront
+  - name: Twitch
+    ats: greenhouse
+    slug: twitch
+  - name: Checkr
+    ats: greenhouse
+    slug: checkr
+  - name: Sigma Computing
+    ats: greenhouse
+    slug: sigmacomputing
+  - name: Hex
+    ats: ashby
+    slug: hex
+  - name: Fivetran
+    ats: greenhouse
+    slug: fivetran
+  - name: Together AI
+    ats: greenhouse
+    slug: togetherai
+  - name: Fireworks AI
+    ats: ashby
+    slug: fireworks
+  - name: Baseten
+    ats: ashby
+    slug: baseten
+  - name: Cerebras
+    ats: ashby
+    slug: cerebras
+  - name: Skydio
+    ats: ashby
+    slug: skydio
+  - name: Color Health
+    ats: ashby
+    slug: color-health
+  - name: Ripple
+    ats: greenhouse
+    slug: ripple
+  - name: Sentry
+    ats: ashby
+    slug: sentry
+  - name: Sierra
+    ats: ashby
+    slug: sierra
+  - name: Decagon
+    ats: ashby
+    slug: decagon
+  - name: Writer
+    ats: ashby
+    slug: writer
+  - name: Notable
+    ats: ashby
+    slug: notable
+  - name: Mixpanel
+    ats: greenhouse
+    slug: mixpanel
+  - name: LaunchDarkly
+    ats: greenhouse
+    slug: launchdarkly
+  - name: Observe.AI
+    ats: greenhouse
+    slug: observeai
+  - name: Pika
+    ats: ashby
+    slug: pika
+  - name: Luma AI
+    ats: ashby
+    slug: lumaai
+  - name: Arize AI
+    ats: greenhouse
+    slug: arizeai
+  - name: Lambda
+    ats: ashby
+    slug: lambda
+  - name: CoreWeave
+    ats: greenhouse
+    slug: coreweave
+  - name: Crusoe
+    ats: ashby
+    slug: crusoe
+  - name: Okta
+    ats: greenhouse
+    slug: okta
