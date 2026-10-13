@@ -14,3 +14,11 @@ reports/*.html
 # Resume, application answers, generated packets - personal data, never commit
 private/
 applications/
+
+# Nightly routine scratch outputs
+msgs.json
+run.err
+run.out
+run*.err
+scratch/
+reports/*.html
