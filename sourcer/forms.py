@@ -248,7 +248,7 @@ def fill(page, fields: list[Field], answers: dict[str, str], resume: Path | None
     options that didn't match)."""
     problems = []
     for f in fields:
-        val = answers.get(f.norm)
+        val = answers.get(f.key, answers.get(f.norm))      # per-field answers win over label matches
         if f.kind == "file":
             if resume is ATTACHED:
                 continue
@@ -274,11 +274,16 @@ def fill(page, fields: list[Field], answers: dict[str, str], resume: Path | None
                 loc.first.select_option(label=opt)
             elif f.kind == "combobox":
                 opt = _choose(f.options, val)
-                if not opt:
-                    problems.append(f"'{val}' isn't an option for: {f.label}")
-                    continue
                 loc.first.click()
                 page.wait_for_timeout(300)
+                if not opt:                     # long lists (schools...) only render matches after typing
+                    loc.first.press_sequentially(val, delay=30)
+                    page.wait_for_timeout(1200)
+                    opt = _choose([t.strip() for t in _menu(page, loc.first).all_inner_texts()], val)
+                    if not opt:
+                        page.keyboard.press("Escape")
+                        problems.append(f"'{val}' isn't an option for: {f.label}")
+                        continue
                 _menu(page, loc.first).filter(has_text=re.compile(rf"^\s*{re.escape(opt)}\s*$")).first.click()
             elif f.kind == "autocomplete":
                 loc.first.scroll_into_view_if_needed()
@@ -301,7 +306,8 @@ def fill(page, fields: list[Field], answers: dict[str, str], resume: Path | None
                 for w in wanted:
                     opt = _choose(f.options, w)
                     if not opt:
-                        problems.append(f"'{w}' isn't an option for: {f.label}")
+                        if f.required:          # optional boxes sharing a label (Ashby "select all") just don't apply
+                            problems.append(f"'{w}' isn't an option for: {f.label}")
                         continue
                     idx = f.options.index(opt)
                     loc.nth(idx).check(force=True)

@@ -109,3 +109,14 @@ def test_cli_render_refuses_untruthful(base, tmp_path):
     assert main(["resume-pdf", "render", str(tmp_path / "t.json"), "-o", out, "--base", str(tmp_path / "base.json")]) == 2
     assert main(["resume-pdf", "render", str(tmp_path / "base.json"), "-o", out]) == 0
     assert (tmp_path / "t.pdf.b64").exists()
+
+
+def test_check_wants_a_metric_first(base):
+    import copy
+    t = copy.deepcopy(base)
+    t["experience"][0]["bullets"].reverse()       # "Shipped ... ~300K" first: fine
+    assert rp.check(t, base) == []
+    t["experience"][0]["bullets"] = ["Owned the pricing roadmap end to end.", *base["experience"][0]["bullets"]]
+    assert any("first bullet" in p for p in rp.check(t, base))
+    t["experience"][1]["bullets"] = ["Defined a north-star KPI adopted org-wide."]   # no metric anywhere: not flagged
+    assert not any("Beta" in p for p in rp.check(t, base))

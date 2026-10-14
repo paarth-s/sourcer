@@ -171,6 +171,8 @@ def auto_answer(label: str, kind: str, options: list[str], facts: dict, company:
                     return o
         return None
 
+    if l.startswith("if ") and not opts:           # conditional follow-up ("If you're not authorized, ...")
+        return None, ""
     if kind == "file":
         if re.search(r"resume|cv\b", l):
             return "<resume>", "profile"
@@ -226,7 +228,8 @@ def auto_answer(label: str, kind: str, options: list[str], facts: dict, company:
                  r"terms|policy|notice)|(privacy|data processing).*(consent|agree|acknowledge)", l):
         o = pick(r"^\s*(yes|i (consent|agree|acknowledge|understand))") or (None if opts else "Yes")
         return (o, "profile") if o else (None, "")
-    if re.search(r"(earliest|available|availability).*(start|begin)|start date|notice period", l) and not opts:
+    if re.search(r"(earliest|available|availability).*(start|begin)|start date|notice period", l) and not opts \
+            and not re.search(r"\b(year|month)\b", l):
         return facts.get("earliest_start", ""), "profile"
     if re.search(r"website|portfolio|github|personal (site|url)|twitter|blog", l) and not opts:
         return facts.get(("github" if "github" in l else "website"), ""), "profile"

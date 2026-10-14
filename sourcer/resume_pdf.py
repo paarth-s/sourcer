@@ -99,6 +99,9 @@ def check(tailored: dict, base: dict) -> list[str]:
         for s in g["items"].split(","):
             if s.strip() and s.strip().lower() not in base_skills:
                 problems.append(f"skill not on base resume: {s.strip()}")
+    for x in tailored.get("experience", [])[:2]:      # lead each main job with a result, not a responsibility
+        if x["bullets"] and not re.search(r"\d", x["bullets"][0]) and any(re.search(r"\d", b) for b in x["bullets"]):
+            problems.append(f"first bullet at {x['company']} has no number or metric - lead with a measurable result")
     for k in ("name", "contact"):
         if tailored.get(k) != base.get(k):
             problems.append(f"{k} changed")
@@ -107,8 +110,13 @@ def check(tailored: dict, base: dict) -> list[str]:
 
 # --- rendering --------------------------------------------------------------------
 
+def fmt_dates(d: str) -> str:
+    """One date style everywhere: 'Jan 2026 - Sep 2026', '2024 - 2026' (base docs mix '–', '-' and spacing)."""
+    return re.sub(r"\s*[-–—]\s*|\s+to\s+", " - ", d.strip())
+
+
 def _all_dates(r: dict) -> list[str]:
-    return [e["dates"] for e in r.get("education", []) + r.get("experience", []) if e.get("dates")]
+    return [fmt_dates(e["dates"]) for e in r.get("education", []) + r.get("experience", []) if e.get("dates")]
 
 
 def _story(r: dict, size: float):
@@ -130,7 +138,7 @@ def _story(r: dict, size: float):
     dw = max([stringWidth(d, "Helvetica", size) for d in _all_dates(r)] or [0]) + 6
 
     def row(left, dates):
-        t = Table([[Paragraph(left, body), Paragraph(esc(dates), right)]], colWidths=[W - dw, dw])
+        t = Table([[Paragraph(left, body), Paragraph(esc(fmt_dates(dates)), right)]], colWidths=[W - dw, dw])
         t.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                                ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
                                ("VALIGN", (0, 0), (-1, -1), "TOP")]))

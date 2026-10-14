@@ -134,17 +134,23 @@ def _submit(args) -> int:
             if info["pages"] != 1:
                 r.update(status="failed", detail="resume runs past one page")
                 continue
-            answers = {forms.norm(q["label"]): q["answer"] for q in a["answers"] if not q.get("from_profile")}
+            answers = {}
+            for q in a["answers"]:                  # same label twice (Lyft's date fields): keep the real answer
+                if not q.get("from_profile") and (q["answer"] or forms.norm(q["label"]) not in answers):
+                    answers[forms.norm(q["label"])] = q["answer"]
             page = b.page()
             try:
                 forms.open_form(page, a["apply_url"])
                 attached = forms.attach_resume(page, pdf)
                 fields = forms.scan(page)
-                for f in fields:            # a field the Doc doesn't list (form changed): standard answers only
-                    if f.norm not in answers:
-                        ans, _ = ap.auto_answer(f.label, f.kind, f.options, facts, a["heading"].split(" - ")[0])
-                        if ans is not None:
-                            answers[f.norm] = ans
+                company = a["heading"].split(" - ")[0]
+                for f in fields:
+                    ans, how = ap.auto_answer(f.label, f.kind, f.options, facts, company)
+                    if how == "profile" and ap.IDENTITY.search(f.label) and f.kind not in ("checkbox", "radio") \
+                            and ans is not None:
+                        answers[f.key] = ans    # name/email/phone always from your profile, never a same-label answer
+                    elif f.norm not in answers and ans is not None:
+                        answers[f.norm] = ans   # a field the Doc doesn't list (form changed): standard answers only
                 issues = forms.fill(page, fields, answers, forms.ATTACHED if attached else pdf)
                 shot = d / "filled.png"
                 page.screenshot(path=str(shot), full_page=True)
