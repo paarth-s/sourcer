@@ -42,7 +42,7 @@ def test_select_ranks_applied_caps_per_company_and_excludes():
                       title="Research Scientist, Machine Learning", description="PhD required", score=66))
     picked, _ = ap.select(roles, exclude={"greenhouse:3"}, limit=15)
     assert [c.id for c in picked] == ["greenhouse:2", "greenhouse:1", "lever:r"]   # 2 per company, research ranked down
-    assert picked[0].apply_url == "https://job-boards.greenhouse.io/acme/jobs/2"
+    assert picked[0].apply_url == "https://job-boards.greenhouse.io/embed/job_app?for=acme&token=2"
     assert picked[-1].apply_url == "https://jobs.lever.co/beta/r/apply"
     assert ap.pick_variant("Machine Learning Engineer") == "mle" and ap.pick_variant("Data Scientist, Growth") == "ds"
 

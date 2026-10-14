@@ -62,7 +62,8 @@ class Candidate:
 
 def apply_url(source: str, url: str, board: str, external_id: str) -> str:
     if source == "greenhouse" and board and external_id:
-        return f"https://job-boards.greenhouse.io/{board}/jobs/{external_id}"
+        # The embed form works even for companies whose board redirects to their own careers site.
+        return f"https://job-boards.greenhouse.io/embed/job_app?for={board}&token={external_id}"
     if source == "lever":
         return url.rstrip("/") + ("" if url.rstrip("/").endswith("/apply") else "/apply")
     if source == "ashby" and board and external_id:
