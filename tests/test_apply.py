@@ -92,7 +92,8 @@ def test_review_doc_round_trip():
         {"label": "Sponsorship?*", "answer": "No", "how": "profile", "required": True, "options": ["Yes", "No"]},
         {"label": "Gender", "answer": "Decline to self-identify", "how": "eeo-decline", "required": False,
          "options": ["Male", "Decline to self-identify"]},
-        {"label": "Salary?*", "answer": "", "how": "", "required": True, "options": []},
+        {"label": "Salary?*", "answer": "", "how": "", "required": True, "options": [], "kind": "text"},
+        {"label": "Why us?*", "answer": "", "how": "", "required": True, "options": [], "kind": "textarea"},
     ]
     doc = ap.render_doc([c], {"greenhouse:9": "Objective\nApplied ML engineer."}, "2026-10-14")
     assert "Jane" not in doc and "Gender" not in doc and "Sponsorship" not in doc   # standard fields stay out
@@ -101,7 +102,8 @@ def test_review_doc_round_trip():
     assert app["apply_url"] == "https://job-boards.greenhouse.io/acme/jobs/9" and app["status"] == "READY"
     got = {q["label"]: q for q in app["answers"]}
     assert got["Why Acme?*"]["answer"] == "I like ~$8M problems.\nSecond para."
-    assert got["Salary?*"]["missing"]
+    assert "Salary?*" not in got                          # factual questions are left to the form
+    assert got["Why us?*"]["missing"]                     # an essay left for Paarth is flagged
     assert norm("Why Acme?*") == norm("Why Acme? (required)") == "why acme"
 
 

@@ -108,7 +108,8 @@ def _statuses(cands, resumes_dir):
             resumes[c.id] = ap.resume_text(json.loads(p.read_text()))
         if c.status in ("manual", "skipped"):
             continue
-        missing = [a for a in c.answers if a.get("required") and a["kind"] != "file" and not (a.get("answer") or "").strip()]
+        missing = [a for a in c.answers if a.get("kind") == "textarea" and a.get("required")
+                   and not (a.get("answer") or "").strip()]
         c.status = "needs_you" if missing or c.id not in resumes else "ready"
         if c.id not in resumes:
             c.note = "no tailored resume yet"

@@ -240,8 +240,8 @@ def auto_answer(label: str, kind: str, options: list[str], facts: dict, company:
 
 PROFILE_MARK = "[from your profile]"
 IDENTITY = re.compile(r"name|e-?mail|phone|linkedin|resume|cv\b", re.I)
-STATUS_TEXT = {"ready": "READY - answers below are ready to paste",
-               "needs_you": "NEEDS YOU - answer the questions marked ??? in this Doc first",
+STATUS_TEXT = {"ready": "READY",
+               "needs_you": "NEEDS YOU - write the answer marked ??? below",
                "manual": "APPLY YOURSELF - the form couldn't be read, so answer it on the site"}
 
 
@@ -251,6 +251,15 @@ def job_page(c: "Candidate") -> str:
     if m:
         return f"https://job-boards.greenhouse.io/{m.group(1)}/jobs/{m.group(2)}"
     return re.sub(r"/application$", "", c.apply_url)
+
+
+def needs_writing(a: dict) -> bool:
+    """Only written answers belong in the Doc: essays drafted for Paarth, or essay boxes left for him.
+    Everything else on a form (identity, dropdowns, yes/no, dates) is obvious when he fills it in."""
+    if a.get("kind") != "textarea":
+        return False
+    return bool((a.get("answer") or "").strip()) and a.get("how") == "drafted" or \
+        (a.get("required", False) and not (a.get("answer") or "").strip())
 
 
 def resume_filename(c: "Candidate", cands: list["Candidate"]) -> str:
@@ -266,9 +275,8 @@ def doc_paragraphs(cands: list[Candidate], resumes: dict[str, str], date: str) -
     for this application (essays, free-text answers) or still needs Paarth. Standard fields
     (identity, work authorization, EEO...) are left to the form and his browser's autofill."""
     out = [("TITLE", f"Sourcer applications - {date}"),
-           ("P", "For each role: open the link, upload the named resume, fill the standard fields (autofill "
-                 "covers most), and paste the written answers below. Reply go in the Sourcer session to get "
-                 "the resumes (or go 1 3 5 for some).")]
+           ("P", "For each role: open the link, upload the named resume (they're posted in this morning's "
+                 "Sourcer session), fill in the usual fields, and paste any written answer listed under it.")]
     for n, c in enumerate(cands, 1):
         out.append(("H2", f"{n}. {c.company} - {c.title}"))
         out += [("P", f"Apply: {job_page(c)}"), ("P", f"ID: {c.id}"),
@@ -277,9 +285,7 @@ def doc_paragraphs(cands: list[Candidate], resumes: dict[str, str], date: str) -
             out.append(("P", f"Resume: {resume_filename(c, cands)} ({c.variant.upper()} base)"))
         if c.note:
             out.append(("P", f"Note: {c.note}"))
-        written = [a for a in c.answers if a.get("kind") != "file" and (
-            a.get("how") == "drafted" and (a.get("answer") or "").strip() and a.get("kind") in ("textarea", "text")
-            or a.get("required") and not (a.get("answer") or "").strip())]
+        written = [a for a in c.answers if needs_writing(a)]
         if written:
             out.append(("H3", "Answers to paste"))
         for a in written:
