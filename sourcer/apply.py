@@ -37,6 +37,10 @@ APPLIED = re.compile(r"\bapplied\b|production|deploy|ship|end[- ]to[- ]end|real[
 RESEARCHY = re.compile(r"research scientist|phd (is )?required|ph\.?d\.? (in|required)|publication record|"
                        r"first[- ]author", re.I)
 BAY = re.compile(BAY_AREA.pattern + r"|bay area|silicon valley", re.I)
+US_REMOTE = re.compile(r"\bremote\b", re.I)
+NON_US = re.compile(r"canada|ontario|toronto|vancouver|\buk\b|united kingdom|london|europe|emea|germany|ireland|"
+                    r"india|bangalore|costa rica|\bcri\b|mexico|brazil|latam|apac|australia|singapore|japan|"
+                    r"residents only|\b(new york|ny|nyc|seattle|austin|chicago|boston|denver)\b.*\(remote\)", re.I)
 ATS_FORMS = {"greenhouse", "lever", "ashby"}      # forms the agent can read (others: link only)
 
 # Brand-name employers where every opening draws thousands of applicants. Still allowed, but ranked
@@ -129,8 +133,8 @@ def is_fit(role: dict) -> tuple[bool, str]:
         return False, "not a DS / MLE / AI engineering title"
     if NOT_FOR_YOU.search(title):
         return False, "level or track doesn't fit"
-    if not BAY.search(loc):
-        return False, f"not Bay Area ({loc or 'no location'})"
+    if not (BAY.search(loc) or US_REMOTE.search(loc) and not NON_US.search(loc)):
+        return False, f"not Bay Area or US-remote ({loc or 'no location'})"
     req = role.get("required_years")
     if req is not None and req > 4:
         return False, f"asks {req}+ years"

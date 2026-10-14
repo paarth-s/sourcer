@@ -25,7 +25,10 @@ def test_fit_rules():
     assert ap.is_fit(role(title="Applied AI Engineer", location="Palo Alto, CA"))[0]
     assert not ap.is_fit(role(connections=["A Friend"]))[0]              # warm path -> outreach, not cold apply
     assert not ap.is_fit(role(location="New York, NY"))[0]
-    assert not ap.is_fit(role(location="Remote - US"))[0]
+    assert ap.is_fit(role(location="Remote - US"))[0]                  # US-remote counts
+    assert ap.is_fit(role(location="United States (Remote)"))[0]
+    assert not ap.is_fit(role(location="Remote, Ontario"))[0]
+    assert not ap.is_fit(role(location="Remote (UT or ID residents only)"))[0]
     assert not ap.is_fit(role(title="Staff Data Scientist"))[0]
     assert not ap.is_fit(role(title="Data Analyst"))[0]
     assert not ap.is_fit(role(title="Master's University Grad Data Scientist (USA)"))[0]
