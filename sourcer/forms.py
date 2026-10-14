@@ -348,6 +348,9 @@ def submit(page, wait_s: int = 30) -> tuple[str, str]:
             return "submitted", "confirmation page shown"
         if _captcha_challenge(page):
             return "blocked", "CAPTCHA challenge - submit this one yourself"
+        if re.search(r"security code|verification code|enter the code", body, re.I):
+            # Greenhouse emails a code when it suspects automation: a bot check, so it's handed back to you
+            return "blocked", "the ATS asked for an emailed security code (a bot check) - submit this one yourself"
     errs = page.locator("[aria-invalid=true], .error, .field-error, [class*=error]").all_inner_texts()
     errs = [e.strip() for e in errs if e.strip()][:5]
     return "failed", ("form errors: " + " | ".join(errs)) if errs else "no confirmation after submitting"
