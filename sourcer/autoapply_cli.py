@@ -133,6 +133,27 @@ def _doc_update(args) -> int:
     return 0
 
 
+def _kit(args) -> int:
+    from .resume_pdf import render
+    facts = yaml.safe_load(Path(args.facts).read_text()) or {}
+    cands = ap.load_queue(args.queue)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    made = []
+    for c in cands:
+        p = Path(args.resumes) / f"{_slug(c.id)}.json"
+        if not p.exists() or c.status in ("skipped", "manual"):
+            continue
+        r = json.loads(p.read_text())
+        r["contact"] = ap.contact_parts(r["contact"], facts.get("apply_email", ""))["line"]
+        info = render(r, out / ap.resume_filename(c, cands))
+        if info["pages"] != 1:
+            print(f"WARNING {c.company}: resume runs to {info['pages']} pages")
+        made.append(info["path"])
+    print("\n".join(made))
+    return 0
+
+
 def _submit(args) -> int:
     from . import forms
     from .resume_pdf import check, parse_text, render
@@ -208,4 +229,4 @@ def _submit(args) -> int:
 
 def main(args) -> int:
     return {"select": _select, "scan": _scan, "doc": _doc, "doc-update": _doc_update,
-            "submit": _submit}[args.aa_cmd](args)
+            "kit": _kit, "submit": _submit}[args.aa_cmd](args)
