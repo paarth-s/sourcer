@@ -100,6 +100,39 @@ def _doc(args) -> int:
     return 0
 
 
+def _statuses(cands, resumes_dir):
+    resumes = {}
+    for c in cands:
+        p = Path(resumes_dir) / f"{_slug(c.id)}.json"
+        if p.exists():
+            resumes[c.id] = ap.resume_text(json.loads(p.read_text()))
+        if c.status in ("manual", "skipped"):
+            continue
+        missing = [a for a in c.answers if a.get("required") and a["kind"] != "file" and not (a.get("answer") or "").strip()]
+        c.status = "needs_you" if missing or c.id not in resumes else "ready"
+        if c.id not in resumes:
+            c.note = "no tailored resume yet"
+    return resumes
+
+
+def _doc_update(args) -> int:
+    raw = json.loads(Path(args.read_doc).read_text())
+    doc = raw.get("document") or (raw["content"] if isinstance(raw.get("content"), dict) else raw)
+    content = (doc.get("body") or {}).get("content") or []
+    if not content and doc.get("tabs"):
+        content = doc["tabs"][0]["documentTab"]["body"]["content"]
+    end = content[-1]["endIndex"] if content else 2
+    cands = ap.load_queue(args.queue)
+    resumes = _statuses(cands, args.resumes)
+    reqs = ap.doc_requests(ap.doc_paragraphs(cands, resumes, args.date), end)
+    Path(args.out).write_text(json.dumps({"requests": reqs, "requiredRevisionId": doc.get("revisionId", "")}, ensure_ascii=False))
+    ap.save_queue(args.queue, cands)
+    n = {st: sum(c.status == st for c in cands) for st in ("ready", "needs_you", "manual")}
+    print(f"{args.out}: {len(reqs)} requests (replacing body up to index {end}); revisionId {doc.get('revisionId', '?')}; "
+          f"{n['ready']} ready, {n['needs_you']} need you, {n['manual']} to apply yourself")
+    return 0
+
+
 def _submit(args) -> int:
     from . import forms
     from .resume_pdf import check, parse_text, render
@@ -174,4 +207,5 @@ def _submit(args) -> int:
 
 
 def main(args) -> int:
-    return {"select": _select, "scan": _scan, "doc": _doc, "submit": _submit}[args.aa_cmd](args)
+    return {"select": _select, "scan": _scan, "doc": _doc, "doc-update": _doc_update,
+            "submit": _submit}[args.aa_cmd](args)

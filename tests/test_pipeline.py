@@ -1,6 +1,6 @@
 import re
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
@@ -30,7 +30,10 @@ def _setup(tmp_path, fixture, monkeypatch):
         data = boards.get((provider, slug))
         if data is None:
             return None
-        return ats.PROVIDERS[provider][1](data, company)
+        jobs = ats.PROVIDERS[provider][1](data, company)
+        for j in jobs:                  # fixtures age; keep them inside the 30-day posting window
+            j.posted_at = datetime.now(timezone.utc) - timedelta(days=2)
+        return jobs
 
     monkeypatch.setattr(ats, "fetch_board", fake_fetch_board)
     # Pin news dates to "now" so lead freshness windows don't make this test rot.
@@ -114,3 +117,19 @@ def test_tracker_filters_and_feeds_digest(tmp_path, fixture, monkeypatch):
     assert lead.connections[0].name == "Kim"                         # tracker contact ranks first
     _, html, text = render_email(res)
     assert "Your tracker" in html and "send a check-in" in html and "Applied -> Rejected" in text
+
+
+def test_old_postings_are_dropped():
+    from datetime import datetime, timedelta, timezone
+    from sourcer.db import Store
+    from sourcer.linkedin import Network
+    from sourcer.models import Job
+    from sourcer.pipeline import score_and_store
+    now = datetime(2026, 10, 14, tzinfo=timezone.utc)
+    mk = lambda i, days: Job(company="Acme", title="Data Scientist, Pricing", url=f"u{i}", source="greenhouse",
+                             external_id=str(i), location="San Francisco, CA", posted_at=now - timedelta(days=days))
+    pool = []
+    score_and_store([mk(1, 5), mk(2, 45)], Store(":memory:"), Network([], {}), {},
+                    {"titles": {"data scientist": 40}, "alert_threshold": 0, "max_posting_age_days": 30},
+                    first_run=False, now=now, collect=pool)
+    assert [sj.job.external_id for sj in pool] == ["1"]

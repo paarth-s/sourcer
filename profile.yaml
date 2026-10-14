@@ -234,6 +234,9 @@ exclude_locations:
 # Minimum score for a posting to show up in alerts (see warm_threshold below for warm paths).
 alert_threshold: 45
 
+# Only consider roles posted within this many days (applies to the digest, outreach and auto-apply).
+max_posting_age_days: 30
+
 # Outreach: for the top roles (one per company) and top leads, find 1-3 key people and
 # draft the exact LinkedIn note/message, or an email when one is publicly listed.
 # Needs ANTHROPIC_API_KEY. Optional private files: private/outreach_examples.md (messages

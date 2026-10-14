@@ -240,43 +240,91 @@ def auto_answer(label: str, kind: str, options: list[str], facts: dict, company:
 
 PROFILE_MARK = "[from your profile]"
 IDENTITY = re.compile(r"name|e-?mail|phone|linkedin|resume|cv\b", re.I)
-STATUS_TEXT = {"ready": "READY - will be submitted when you say go",
+STATUS_TEXT = {"ready": "READY - answers below are ready to paste",
                "needs_you": "NEEDS YOU - answer the questions marked ??? in this Doc first",
-               "manual": "APPLY YOURSELF - this form can't be submitted automatically"}
+               "manual": "APPLY YOURSELF - the form couldn't be read, so answer it on the site"}
+
+
+def job_page(c: "Candidate") -> str:
+    """The posting people open (not the embed form URL the agent fills)."""
+    m = re.search(r"embed/job_app\?for=([\w-]+)&token=(\d+)", c.apply_url)
+    if m:
+        return f"https://job-boards.greenhouse.io/{m.group(1)}/jobs/{m.group(2)}"
+    return re.sub(r"/application$", "", c.apply_url)
+
+
+def resume_filename(c: "Candidate", cands: list["Candidate"]) -> str:
+    """Paarth_Sharma_Resume_<Company>.pdf, plus _<n> when the queue has more than one role there."""
+    tag = re.sub(r"[^A-Za-z0-9]+", "", c.company)
+    same = [x for x in cands if x.company == c.company]
+    return f"Paarth_Sharma_Resume_{tag}" + (f"_{same.index(c) + 1}" if len(same) > 1 else "") + ".pdf"
+
+
+def doc_paragraphs(cands: list[Candidate], resumes: dict[str, str], date: str) -> list[tuple[str, str]]:
+    """The nightly review Doc as (style, text) paragraphs; style is TITLE / H2 / H3 / P.
+    Kept short on purpose: the apply link, the resume to upload, and only the text that was written
+    for this application (essays, free-text answers) or still needs Paarth. Standard fields
+    (identity, work authorization, EEO...) are left to the form and his browser's autofill."""
+    out = [("TITLE", f"Sourcer applications - {date}"),
+           ("P", "For each role: open the link, upload the named resume, fill the standard fields (autofill "
+                 "covers most), and paste the written answers below. Reply go in the Sourcer session to get "
+                 "the resumes (or go 1 3 5 for some).")]
+    for n, c in enumerate(cands, 1):
+        out.append(("H2", f"{n}. {c.company} - {c.title}"))
+        out += [("P", f"Apply: {job_page(c)}"), ("P", f"ID: {c.id}"),
+                ("P", f"Status: {STATUS_TEXT.get(c.status, c.status)}")]
+        if c.id in resumes:
+            out.append(("P", f"Resume: {resume_filename(c, cands)} ({c.variant.upper()} base)"))
+        if c.note:
+            out.append(("P", f"Note: {c.note}"))
+        written = [a for a in c.answers if a.get("kind") != "file" and (
+            a.get("how") == "drafted" and (a.get("answer") or "").strip() and a.get("kind") in ("textarea", "text")
+            or a.get("required") and not (a.get("answer") or "").strip())]
+        if written:
+            out.append(("H3", "Answers to paste"))
+        for a in written:
+            ans = (a.get("answer") or "").strip() or "??? (you need to answer this one)"
+            lines = ans.split("\n")
+            out.append(("P", f"Q: {a['label']}"))
+            out.append(("P", "A: " + lines[0]))
+            out += [("P", line) for line in lines[1:] if line.strip()]
+    return out
 
 
 def render_doc(cands: list[Candidate], resumes: dict[str, str], date: str) -> str:
-    """HTML for the nightly review Google Doc. `resumes` maps candidate id -> tailored resume text
-    (Objective / Education / Skills / Experience sections, no name/contact lines)."""
-    e = html.escape
-    out = [f"<html><body><h1>Sourcer applications - {e(date)}</h1>",
-           "<p>Reply <b>go</b> in the Sourcer session to submit every READY application below, or "
-           "<b>go 1 3 5</b> for some of them. Edit any answer in this Doc first if you like - the "
-           "submission uses this Doc's text. Delete an application's section to skip it.</p>"]
-    for n, c in enumerate(cands, 1):
-        out.append(f"<h2>{n}. {e(c.company)} - {e(c.title)}</h2>")
-        out.append(f"<p>ID: {e(c.id)}</p><p>Apply: {e(c.apply_url)}</p><p>Location: {e(c.location)}</p>")
-        out.append(f"<p>Status: {e(STATUS_TEXT.get(c.status, c.status))}</p>")
-        if c.why or c.note:
-            out.append(f"<p>Why: {e('; '.join(c.why))}{(' - ' + e(c.note)) if c.note else ''}</p>")
-        out.append("<h3>Answers</h3>")
-        for a in c.answers:
-            req = " (required)" if a.get("required") else ""
-            ans = a.get("answer")
-            shown = "???" if ans in (None, "") and a.get("required") else (ans or "(blank)")
-            if a.get("how") == "profile" and IDENTITY.search(a["label"]):
-                shown = PROFILE_MARK
-            if a.get("how") == "eeo-decline":
-                shown += " [voluntary EEO question - declined]"
-            out.append(f"<p>Q: {e(a['label'])}{req}</p>")
-            if a.get("options") and len(a["options"]) <= 10 and a.get("how") != "eeo-decline":
-                out.append(f"<p>Options: {e(' | '.join(a['options'][:12]))}</p>")
-            out.append("<p>A: " + "<br>".join(e(x) for x in str(shown).split("\n")) + "</p>")
-        if c.id in resumes:
-            out.append(f"<h3>Resume (base: {e(c.variant)})</h3>")
-            out += [f"<p>{e(line)}</p>" for line in resumes[c.id].splitlines() if line.strip()]
-    out.append("</body></html>")
-    return "\n".join(out)
+    """HTML for creating the review Doc from scratch (Drive create_file)."""
+    tag = {"TITLE": "h1", "H2": "h2", "H3": "h3", "P": "p"}
+    body = "\n".join(f"<{tag[s]}>{html.escape(t)}</{tag[s]}>" for s, t in doc_paragraphs(cands, resumes, date))
+    return f"<html><body>{body}</body></html>"
+
+
+def _u16(s: str) -> int:
+    return len(s.encode("utf-16-le")) // 2
+
+
+def doc_requests(paragraphs: list[tuple[str, str]], end_index: int) -> list[dict]:
+    """Google Docs batchUpdate requests that replace a Doc's whole body with `paragraphs`.
+    `end_index` is the body's last content element endIndex from read_doc (an empty Doc has 2)."""
+    named = {"TITLE": "HEADING_1", "H2": "HEADING_2", "H3": "HEADING_3", "P": "NORMAL_TEXT"}
+    reqs: list[dict] = []
+    if end_index > 2:
+        reqs.append({"deleteContentRange": {"range": {"startIndex": 1, "endIndex": end_index - 1}}})
+    text = "\n".join(t.replace("\n", " ") for _, t in paragraphs)
+    reqs.append({"insertText": {"location": {"index": 1}, "text": text}})
+    reqs.append({"updateParagraphStyle": {"range": {"startIndex": 1, "endIndex": 1 + _u16(text)},
+                                          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+                                          "fields": "namedStyleType"}})
+    reqs.append({"updateTextStyle": {"range": {"startIndex": 1, "endIndex": 1 + _u16(text)},
+                                     "textStyle": {"bold": False}, "fields": "bold"}})
+    pos = 1
+    for style, t in paragraphs:
+        n = _u16(t.replace("\n", " "))
+        if style != "P":
+            reqs.append({"updateParagraphStyle": {"range": {"startIndex": pos, "endIndex": pos + n + 1},
+                                                  "paragraphStyle": {"namedStyleType": named[style]},
+                                                  "fields": "namedStyleType"}})
+        pos += n + 1
+    return reqs
 
 
 def _unmd(s: str) -> str:
@@ -341,7 +389,7 @@ def parse_doc(text: str) -> list[dict]:
             ans = re.sub(r"\s*\[voluntary EEO question - declined\]$", "", ans)
             q["from_profile"] = ans.strip() == PROFILE_MARK
             q["answer"] = "" if ans in ("(blank)", PROFILE_MARK) else ans
-            q["missing"] = q["required"] and not q["from_profile"] and ans.strip() in ("", "???")
+            q["missing"] = (q["required"] and not q["from_profile"] and ans.strip() == "") or ans.strip().startswith("???")
         a["resume_text"] = "\n".join(a.pop("resume_lines"))
     return apps
 

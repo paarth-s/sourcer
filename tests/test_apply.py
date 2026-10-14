@@ -83,27 +83,35 @@ def _drive_text(h: str) -> str:
 
 def test_review_doc_round_trip():
     c = ap.Candidate(id="greenhouse:9", company="Acme", title="ML Engineer", url="u",
-                     apply_url="https://job-boards.greenhouse.io/acme/jobs/9", ats="greenhouse", location="SF",
-                     score=1, rank=1, why=["fits"], variant="mle", status="ready")
+                     apply_url="https://job-boards.greenhouse.io/embed/job_app?for=acme&token=9", ats="greenhouse",
+                     location="SF", score=1, rank=1, why=["fits"], variant="mle", status="ready")
     c.answers = [
         {"label": "First Name*", "answer": "Jane", "how": "profile", "required": True, "options": []},
         {"label": "Why Acme?*", "answer": "I like ~$8M problems.\nSecond para.", "how": "drafted", "required": True,
-         "options": []},
+         "options": [], "kind": "textarea"},
         {"label": "Sponsorship?*", "answer": "No", "how": "profile", "required": True, "options": ["Yes", "No"]},
         {"label": "Gender", "answer": "Decline to self-identify", "how": "eeo-decline", "required": False,
          "options": ["Male", "Decline to self-identify"]},
         {"label": "Salary?*", "answer": "", "how": "", "required": True, "options": []},
     ]
-    resume = "Objective\nApplied ML engineer.\nExperience\nML Engineer\nAcme Co, SF, CA 2024 - 2026\nShipped ~$8M model."
-    doc = ap.render_doc([c], {"greenhouse:9": resume}, "2026-10-14")
-    assert "Jane" not in doc                      # identity answers stay out of the Doc
+    doc = ap.render_doc([c], {"greenhouse:9": "Objective\nApplied ML engineer."}, "2026-10-14")
+    assert "Jane" not in doc and "Gender" not in doc and "Sponsorship" not in doc   # standard fields stay out
     (app,) = ap.parse_doc(_drive_text(doc))
-    assert (app["n"], app["id"], app["variant"]) == (1, "greenhouse:9", "mle")
+    assert (app["n"], app["id"]) == (1, "greenhouse:9")
     assert app["apply_url"] == "https://job-boards.greenhouse.io/acme/jobs/9" and app["status"] == "READY"
     got = {q["label"]: q for q in app["answers"]}
-    assert got["First Name*"]["from_profile"] and not got["First Name*"]["missing"]
     assert got["Why Acme?*"]["answer"] == "I like ~$8M problems.\nSecond para."
-    assert got["Sponsorship?*"]["answer"] == "No" and got["Gender"]["answer"] == "Decline to self-identify"
     assert got["Salary?*"]["missing"]
-    assert app["resume_text"] == resume
     assert norm("Why Acme?*") == norm("Why Acme? (required)") == "why acme"
+
+
+def test_doc_requests_replace_body_and_style_headings():
+    paras = [("TITLE", "Sourcer applications - 2026-10-15"), ("P", "intro é"), ("H2", "1. Acme - ML"), ("P", "Q: x")]
+    reqs = ap.doc_requests(paras, end_index=65)
+    assert reqs[0] == {"deleteContentRange": {"range": {"startIndex": 1, "endIndex": 64}}}
+    text = reqs[1]["insertText"]["text"]
+    assert text == "Sourcer applications - 2026-10-15\nintro é\n1. Acme - ML\nQ: x"
+    h2 = [r for r in reqs if r.get("updateParagraphStyle", {}).get("paragraphStyle", {}).get("namedStyleType") == "HEADING_2"]
+    start = 1 + len("Sourcer applications - 2026-10-15\nintro é\n")
+    assert h2[0]["updateParagraphStyle"]["range"] == {"startIndex": start, "endIndex": start + len("1. Acme - ML") + 1}
+    assert ap.doc_requests(paras, end_index=2)[0].get("insertText")   # empty Doc: nothing to delete

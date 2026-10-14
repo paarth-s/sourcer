@@ -231,6 +231,7 @@ def score_and_store(jobs: list[Job], store: Store, network: Network,
     # Allow slack below threshold so the LLM pass can promote near-misses.
     candidate_floor = threshold - 10 if llm.enabled() else threshold
     warm_floor = profile.get("warm_threshold", threshold - 10)   # you know someone there
+    max_age = profile.get("max_posting_age_days", 30)
     new: list[ScoredJob] = []
     by_company: dict[str, list[Job]] = {}
     seen: set[str] = set()
@@ -238,6 +239,8 @@ def score_and_store(jobs: list[Job], store: Store, network: Network,
         if job.uid in seen:
             continue
         seen.add(job.uid)
+        if job.posted_at and now - job.posted_at > timedelta(days=max_age):
+            continue                    # stale posting (profile: max_posting_age_days)
         by_company.setdefault(job.company_key, []).append(job)
         conns = network.at(job.company)
         funding = funding_by_key.get(job.company_key)
