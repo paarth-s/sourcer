@@ -173,11 +173,11 @@ def select(roles: list[dict], exclude: set[str] = frozenset(), limit: int = 15, 
     return picked, skipped
 
 
-def roles_payload(new_jobs) -> list[dict]:
+def roles_payload(new_jobs, all_jobs=None) -> list[dict]:
     """ScoredJob list -> the JSON `run --preview` writes for the apply agent. board_size (open roles
     seen at the company this run) and funding_round help tell startups from big companies."""
     sizes: dict[str, int] = {}
-    for sj in new_jobs:
+    for sj in (all_jobs if all_jobs is not None else new_jobs):     # every posting seen, not just good fits
         sizes[sj.job.company_key] = sizes.get(sj.job.company_key, 0) + 1
     out = []
     for sj in new_jobs:

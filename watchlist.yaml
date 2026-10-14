@@ -297,3 +297,248 @@ companies:
     workday: https://agilent.wd5.myworkdayjobs.com/agilent_careers
   - name: Abbott
     workday: https://abbott.wd5.myworkdayjobs.com/abbottcareers
+
+  # --- Smaller / under-the-radar Bay Area startups (watched even when no DS role is open yet) ---
+  - name: Sardine
+    ats: ashby
+    slug: sardine
+  - name: Alloy
+    ats: greenhouse
+    slug: alloy
+  - name: Persona
+    ats: ashby
+    slug: persona
+  - name: Vanta
+    ats: ashby
+    slug: vanta
+  - name: Watershed
+    ats: greenhouse
+    slug: watershed
+  - name: Arcadia
+    ats: lever
+    slug: arcadia
+  - name: Pachama
+    ats: lever
+    slug: pachama
+  - name: Tala
+    ats: lever
+    slug: tala
+  - name: Branch
+    ats: greenhouse
+    slug: branch
+  - name: Ethos
+    ats: greenhouse
+    slug: ethos
+  - name: Ladder
+    ats: ashby
+    slug: ladder
+  - name: Instawork
+    ats: greenhouse
+    slug: instawork
+  - name: Wonolo
+    ats: lever
+    slug: wonolo
+  - name: Weee
+    ats: greenhouse
+    slug: weee
+  - name: Grove Collaborative
+    ats: greenhouse
+    slug: grovecollaborative
+  - name: Poshmark
+    ats: greenhouse
+    slug: poshmark
+  - name: Nextdoor
+    ats: greenhouse
+    slug: nextdoor
+  - name: Thumbtack
+    ats: ashby
+    slug: thumbtack
+  - name: TaskRabbit
+    ats: greenhouse
+    slug: taskrabbit
+  - name: Upwork
+    ats: greenhouse
+    slug: upwork
+  - name: Earnin
+    ats: greenhouse
+    slug: earnin
+  - name: Brigit
+    ats: ashby
+    slug: brigit
+  - name: Mission Lane
+    ats: greenhouse
+    slug: missionlane
+  - name: Carbon Health
+    ats: lever
+    slug: carbonhealth
+  - name: Lyra Health
+    ats: lever
+    slug: lyrahealth
+  - name: Omada Health
+    ats: greenhouse
+    slug: omadahealth
+  - name: Virta Health
+    ats: ashby
+    slug: virtahealth
+  - name: Hinge Health
+    ats: ashby
+    slug: hinge-health
+  - name: Komodo Health
+    ats: greenhouse
+    slug: komodohealth
+  - name: Deel
+    ats: ashby
+    slug: deel
+  - name: Lattice
+    ats: greenhouse
+    slug: lattice
+  - name: Ramp
+    ats: ashby
+    slug: ramp
+  - name: Expensify
+    ats: ashby
+    slug: expensify
+  - name: Carta
+    ats: greenhouse
+    slug: carta
+  - name: AngelList
+    ats: lever
+    slug: angellist
+  - name: Airtable
+    ats: greenhouse
+    slug: airtable
+  - name: Amplitude
+    ats: ashby
+    slug: amplitude
+  - name: Hightouch
+    ats: ashby
+    slug: hightouch
+  - name: Cribl
+    ats: greenhouse
+    slug: cribl
+  - name: Anyscale
+    ats: lever
+    slug: anyscale
+  - name: Modal
+    ats: ashby
+    slug: modal
+  - name: Fiddler AI
+    ats: ashby
+    slug: fiddler-ai
+  - name: Labelbox
+    ats: greenhouse
+    slug: labelbox
+  - name: Tecton
+    ats: lever
+    slug: tecton
+  - name: Chalk
+    ats: ashby
+    slug: chalk
+  - name: Pinecone
+    ats: ashby
+    slug: pinecone
+  - name: Weaviate
+    ats: ashby
+    slug: weaviate
+  - name: LanceDB
+    ats: ashby
+    slug: lancedb
+  - name: Unstructured
+    ats: ashby
+    slug: unstructured
+  - name: LlamaIndex
+    ats: ashby
+    slug: llamaindex
+  - name: LangChain
+    ats: ashby
+    slug: langchain
+  - name: Rogo
+    ats: ashby
+    slug: rogo
+  - name: Gamma
+    ats: lever
+    slug: gamma
+  - name: Descript
+    ats: greenhouse
+    slug: descript
+  - name: Runway
+    ats: ashby
+    slug: runway
+  - name: Synthesia
+    ats: ashby
+    slug: synthesia
+  - name: ElevenLabs
+    ats: ashby
+    slug: elevenlabs
+  - name: Deepgram
+    ats: ashby
+    slug: deepgram
+  - name: AssemblyAI
+    ats: greenhouse
+    slug: assemblyai
+  - name: Cresta
+    ats: greenhouse
+    slug: cresta
+  - name: Abnormal Security
+    ats: greenhouse
+    slug: abnormalsecurity
+  - name: HiddenLayer
+    ats: greenhouse
+    slug: hiddenlayer
+  - name: Chainguard
+    ats: greenhouse
+    slug: chainguard
+  - name: Semgrep
+    ats: ashby
+    slug: semgrep
+  - name: Snyk
+    ats: ashby
+    slug: snyk
+  - name: Wiz
+    ats: ashby
+    slug: wiz
+  - name: Orca Security
+    ats: greenhouse
+    slug: orcasecurity
+  - name: Netlify
+    ats: greenhouse
+    slug: netlify
+  - name: Supabase
+    ats: ashby
+    slug: supabase
+  - name: Neon
+    ats: lever
+    slug: neon
+  - name: PlanetScale
+    ats: greenhouse
+    slug: planetscale
+  - name: Clerk
+    ats: ashby
+    slug: clerk
+  - name: WorkOS
+    ats: ashby
+    slug: workos
+  - name: Stytch
+    ats: ashby
+    slug: stytch
+  - name: Kong
+    ats: ashby
+    slug: kong
+  - name: Temporal
+    ats: ashby
+    slug: temporal
+  - name: Prefect
+    ats: ashby
+    slug: prefect
+  - name: Astronomer
+    ats: ashby
+    slug: astronomer
+  - name: Anomalo
+    ats: ashby
+    slug: anomalo
+  - name: Atlan
+    ats: ashby
+    slug: atlan
+  - name: Collibra
+    ats: greenhouse
+    slug: collibra
