@@ -55,6 +55,9 @@ def _scan(args) -> int:
         for c in cands:
             if c.status not in ("pending",):
                 continue
+            if c.ats not in ap.ATS_FORMS:       # Workday / HN etc.: no form to read, the Doc just links it
+                c.answers = []
+                continue
             try:
                 page = b.page()
                 forms.open_form(page, c.apply_url)

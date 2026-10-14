@@ -265,3 +265,35 @@ companies:
   - name: Okta
     ats: greenhouse
     slug: okta
+
+  # --- Established Bay Area employers (non-big-tech; Workday sites found by probing) ---
+  - name: Applied Materials
+    workday: https://amat.wd1.myworkdayjobs.com/External
+  - name: Chevron
+    workday: https://chevron.wd5.myworkdayjobs.com/jobs
+  - name: Gilead
+    workday: https://gilead.wd1.myworkdayjobs.com/gileadcareers
+  - name: McKesson
+    workday: https://mckesson.wd3.myworkdayjobs.com/External_Careers
+  - name: Clorox
+    workday: https://clorox.wd1.myworkdayjobs.com/clorox
+  - name: Levi Strauss
+    workday: https://levistraussandco.wd5.myworkdayjobs.com/External
+  - name: Intel
+    workday: https://intel.wd1.myworkdayjobs.com/External
+  - name: PayPal
+    workday: https://paypal.wd1.myworkdayjobs.com/jobs
+  - name: Cadence
+    workday: https://cadence.wd1.myworkdayjobs.com/External_Careers
+  - name: KLA
+    workday: https://kla.wd1.myworkdayjobs.com/Search
+  - name: Visa
+    workday: https://visa.wd5.myworkdayjobs.com/visa
+  - name: Cisco
+    workday: https://cisco.wd5.myworkdayjobs.com/cisco_careers
+  - name: Medtronic
+    workday: https://medtronic.wd1.myworkdayjobs.com/medtroniccareers
+  - name: Agilent
+    workday: https://agilent.wd5.myworkdayjobs.com/agilent_careers
+  - name: Abbott
+    workday: https://abbott.wd5.myworkdayjobs.com/abbottcareers

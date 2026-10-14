@@ -37,7 +37,48 @@ APPLIED = re.compile(r"\bapplied\b|production|deploy|ship|end[- ]to[- ]end|real[
 RESEARCHY = re.compile(r"research scientist|phd (is )?required|ph\.?d\.? (in|required)|publication record|"
                        r"first[- ]author", re.I)
 BAY = re.compile(BAY_AREA.pattern + r"|bay area|silicon valley", re.I)
-ATS_FORMS = {"greenhouse", "lever", "ashby"}
+ATS_FORMS = {"greenhouse", "lever", "ashby"}      # forms the agent can read (others: link only)
+
+# Brand-name employers where every opening draws thousands of applicants. Still allowed, but ranked
+# down and capped so the queue leans toward startups and established non-tech employers.
+BIG_TECH = {"google", "alphabet", "meta", "facebook", "apple", "amazon", "aws", "microsoft", "netflix", "openai",
+            "anthropic", "stripe", "airbnb", "uber", "lyft", "pinterest", "linkedin", "nvidia", "salesforce",
+            "databricks", "snowflake", "figma", "notion", "discord", "twitch", "scale ai", "scaleai", "coinbase",
+            "robinhood", "doordash", "instacart", "reddit", "x", "twitter", "tesla", "spotify", "adobe",
+            "character.ai", "perplexity", "waymo", "cruise", "zoox", "nuro", "deepmind", "xai", "mistral"}
+# Long-established companies outside big tech (finance, retail, health, energy, industrial, semis).
+ESTABLISHED = {"applied materials", "charles schwab", "schwab", "chevron", "gilead", "genentech", "roche", "mckesson",
+               "clorox", "williams-sonoma", "williams sonoma", "ross stores", "levi strauss", "intel", "autodesk",
+               "paypal", "ebay", "dolby", "western digital", "synopsys", "cadence", "kla", "lam research",
+               "franklin templeton", "blackrock", "visa", "cisco", "intuit", "sutter health", "kaiser permanente",
+               "blue shield of california", "albertsons", "safeway", "wells fargo", "bank of america", "pg&e",
+               "medtronic", "bio-rad", "agilent", "abbott", "illumina", "hp", "juniper networks", "netapp",
+               "gap", "gap inc", "general motors", "expedia group", "booking holdings", "priceline", "zillow",
+               "redfin", "equity residential", "united airlines", "alaska airlines", "mastercard", "okta", "box",
+               "workday", "servicenow", "stanford health care", "ucsf", "adyen", "pros"}
+BIG_TECH_CAP = 4
+
+
+def _key(name: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[,.]|\b(inc|llc|corp|corporation|co|company|group|holdings)\b", " ",
+                                      name.lower())).strip()
+
+
+def company_tier(role: dict) -> str:
+    """big_tech | startup | established | other."""
+    k = _key(role.get("company", ""))
+    if k in BIG_TECH:
+        return "big_tech"
+    if k in ESTABLISHED or role.get("source") == "workday":
+        return "established"
+    if role.get("funding_round") or role.get("source") == "hn" or (role.get("board_size") or 999) <= 60:
+        return "startup"
+    return "other"
+
+
+TIER_LABEL = {"big_tech": "Big tech (competitive)", "startup": "Startup / small company",
+              "established": "Established company", "other": "Mid-size company"}
+TIER_BONUS = {"big_tech": -15, "startup": 12, "established": 10, "other": 0}
 
 
 @dataclass
@@ -58,6 +99,8 @@ class Candidate:
     status: str = "pending"    # pending -> ready | needs_you -> submitted | blocked | failed | skipped
     answers: list[dict] = field(default_factory=list)   # {label, answer, how, required}
     note: str = ""
+    tier: str = "other"        # big_tech | startup | established | other
+    funding: str = ""          # e.g. "Series B" when a recent round is known
 
 
 def apply_url(source: str, url: str, board: str, external_id: str) -> str:
@@ -93,13 +136,11 @@ def is_fit(role: dict) -> tuple[bool, str]:
         return False, f"asks {req}+ years"
     if SENIOR.search(title) and (req is None or req > 4):
         return False, "senior title without a 2-4 year ask"
-    if role.get("source") not in ATS_FORMS:
-        return False, f"{role.get('source')} applications need an account - apply yourself"
     return True, ""
 
 
-def select(roles: list[dict], exclude: set[str] = frozenset(), limit: int = 15,
-           per_company: int = 2) -> tuple[list[Candidate], list[tuple[dict, str]]]:
+def select(roles: list[dict], exclude: set[str] = frozenset(), limit: int = 15, per_company: int = 2,
+           big_tech_cap: int = BIG_TECH_CAP) -> tuple[list[Candidate], list[tuple[dict, str]]]:
     picked, skipped, per = [], [], {}
     ranked = []
     for r in roles:
@@ -110,24 +151,34 @@ def select(roles: list[dict], exclude: set[str] = frozenset(), limit: int = 15,
             skipped.append((r, why))
             continue
         text = f"{r.get('title', '')} {r.get('description', '')}"
-        rank = r.get("score", 0) + (8 if APPLIED.search(text) else 0) - (10 if RESEARCHY.search(text) else 0)
+        tier = company_tier(r)
+        rank = (r.get("score", 0) + (8 if APPLIED.search(text) else 0) - (10 if RESEARCHY.search(text) else 0)
+                + TIER_BONUS[tier] + (5 if (r.get("board_size") or 999) <= 25 else 0))
         ranked.append((rank, r))
+    big = 0
     for rank, r in sorted(ranked, key=lambda x: -x[0]):
         key = re.sub(r"\W+", "", r["company"].lower())
-        if per.get(key, 0) >= per_company or len(picked) >= limit:
+        tier = company_tier(r)
+        if per.get(key, 0) >= per_company or len(picked) >= limit or (tier == "big_tech" and big >= big_tech_cap):
             continue
         per[key] = per.get(key, 0) + 1
+        big += tier == "big_tech"
         picked.append(Candidate(
             id=r["uid"], company=r["company"], title=r["title"], url=r["url"],
             apply_url=apply_url(r["source"], r["url"], r.get("board", ""), r.get("external_id", "")),
             ats=r["source"], location=r.get("location", ""), score=r.get("score", 0), rank=rank,
             why=list(r.get("reasons") or [])[:4], variant=pick_variant(r["title"]),
-            required_years=r.get("required_years"), description=(r.get("description") or "")[:8000]))
+            required_years=r.get("required_years"), description=(r.get("description") or "")[:8000],
+            tier=company_tier(r), funding=r.get("funding_round") or ""))
     return picked, skipped
 
 
 def roles_payload(new_jobs) -> list[dict]:
-    """ScoredJob list -> the JSON `run --preview` writes for the apply agent."""
+    """ScoredJob list -> the JSON `run --preview` writes for the apply agent. board_size (open roles
+    seen at the company this run) and funding_round help tell startups from big companies."""
+    sizes: dict[str, int] = {}
+    for sj in new_jobs:
+        sizes[sj.job.company_key] = sizes.get(sj.job.company_key, 0) + 1
     out = []
     for sj in new_jobs:
         j = sj.job
@@ -136,6 +187,8 @@ def roles_payload(new_jobs) -> list[dict]:
                     "external_id": j.external_id, "score": round(sj.score, 1), "reasons": sj.reasons,
                     "connections": [c.name for c in sj.connections],
                     "required_years": required_years(j.description),
+                    "board_size": sizes.get(j.company_key, 0),
+                    "funding_round": (sj.funding.round or "recent funding") if sj.funding else "",
                     "description": re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html.unescape(j.description or "")))[:8000]})
     return out
 
@@ -279,7 +332,8 @@ def doc_paragraphs(cands: list[Candidate], resumes: dict[str, str], date: str) -
                  "Sourcer session), fill in the usual fields, and paste any written answer listed under it.")]
     for n, c in enumerate(cands, 1):
         out.append(("H2", f"{n}. {c.company} - {c.title}"))
-        out += [("P", f"Apply: {job_page(c)}"), ("P", f"ID: {c.id}"),
+        kind = TIER_LABEL.get(c.tier, "") + (f", {c.funding}" if c.funding else "")
+        out += [("P", f"Apply: {job_page(c)}"), ("P", f"Company: {kind}"), ("P", f"ID: {c.id}"),
                 ("P", f"Status: {STATUS_TEXT.get(c.status, c.status)}")]
         if c.id in resumes:
             out.append(("P", f"Resume: {resume_filename(c, cands)} ({c.variant.upper()} base)"))

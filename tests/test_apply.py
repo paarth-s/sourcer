@@ -33,7 +33,7 @@ def test_fit_rules():
     assert not ap.is_fit(role(required_years=6))[0]
     assert not ap.is_fit(role(title="Senior Data Scientist", required_years=None))[0]
     assert ap.is_fit(role(title="Senior Data Scientist", required_years=3))[0]
-    assert not ap.is_fit(role(source="workday"))[0]
+    assert ap.is_fit(role(source="workday"))[0]                        # applied by hand from the Doc link
 
 
 def test_select_ranks_applied_caps_per_company_and_excludes():
@@ -117,3 +117,18 @@ def test_doc_requests_replace_body_and_style_headings():
     start = 1 + len("Sourcer applications - 2026-10-15\nintro é\n")
     assert h2[0]["updateParagraphStyle"]["range"] == {"startIndex": start, "endIndex": start + len("1. Acme - ML") + 1}
     assert ap.doc_requests(paras, end_index=2)[0].get("insertText")   # empty Doc: nothing to delete
+
+
+def test_tiers_rank_startups_and_established_over_big_tech():
+    roles = [role(uid=f"greenhouse:b{i}", company=n, external_id=f"b{i}", score=70)
+             for i, n in enumerate(["Stripe", "Airbnb", "Lyft", "Pinterest", "Discord", "OpenAI"])]
+    roles += [role(uid="greenhouse:s1", company="Tiny Labs", external_id="s1", score=55, board_size=8,
+                   funding_round="Series A"),
+              role(uid="workday:e1", company="Charles Schwab", source="workday", external_id="e1", score=55),
+              role(uid="greenhouse:m1", company="MidCo", external_id="m1", score=55, board_size=200)]
+    picked, _ = ap.select(roles, limit=15)
+    tiers = [c.tier for c in picked]
+    assert tiers[:2] == ["startup", "established"]                       # 55+12+5 / 55+10 beat 70-15
+    assert tiers.count("big_tech") == ap.BIG_TECH_CAP                    # capped
+    assert picked[0].funding == "Series A"
+    assert ap.company_tier({"company": "Stripe, Inc."}) == "big_tech"
