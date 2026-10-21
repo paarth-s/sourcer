@@ -130,15 +130,18 @@ def _story(r: dict, size: float):
     body = ParagraphStyle("b", fontName="Helvetica", fontSize=size, leading=lead)
     bold = ParagraphStyle("bb", parent=body, fontName="Helvetica-Bold")
     right = ParagraphStyle("r", parent=body, alignment=2)
+    org = ParagraphStyle("o", parent=body, fontSize=size + 0.75, leading=(size + 0.75) * 1.2)
     bullet = ParagraphStyle("li", parent=body, leftIndent=size * 1.5, bulletIndent=size * 0.4,
                             spaceAfter=size * 0.12)
     head = ParagraphStyle("h", parent=bold, fontSize=size + 1.2, leading=(size + 1.2) * 1.2,
                           spaceBefore=size * 0.55)
     W = 7.5 * 72 - 12                                   # page width minus margins and frame padding
-    dw = max([stringWidth(d, "Helvetica", size) for d in _all_dates(r)] or [0]) + 6
+    dw = max([stringWidth(d, "Helvetica", size + 0.75) for d in _all_dates(r)] or [0]) + 6
 
-    def row(left, dates):
-        t = Table([[Paragraph(left, body), Paragraph(esc(fmt_dates(dates)), right)]], colWidths=[W - dw, dw])
+    def row(left, dates, style=None):
+        st = style or body
+        t = Table([[Paragraph(left, st), Paragraph(esc(fmt_dates(dates)), ParagraphStyle("rr", parent=st, alignment=2))]],
+                  colWidths=[W - dw, dw])
         t.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                                ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
                                ("VALIGN", (0, 0), (-1, -1), "TOP")]))
@@ -167,7 +170,7 @@ def _story(r: dict, size: float):
             if n:
                 s.append(Spacer(1, size * 0.45))
             s.append(Paragraph(esc(x["title"]), bold))
-            s.append(row(esc(x["company"]), x["dates"]))
+            s.append(row(esc(x["company"]), x["dates"], org))     # as on the base: plain, a touch larger than body
             s += [Paragraph(esc(b), bullet, bulletText="\u2022") for b in x["bullets"]]
     return s
 
