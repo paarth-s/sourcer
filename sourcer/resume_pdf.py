@@ -169,8 +169,8 @@ def _story(r: dict, size: float):
         for n, x in enumerate(r["experience"]):
             if n:
                 s.append(Spacer(1, size * 0.45))
-            s.append(Paragraph(esc(x["title"]), bold))
-            s.append(row(esc(x["company"]), x["dates"], org))     # as on the base: plain, a touch larger than body
+            s.append(Paragraph(esc(x["title"]), ParagraphStyle("ob", parent=org, fontName="Helvetica-Bold")))
+            s.append(row(esc(x["company"]), x["dates"], org))     # title and company a touch larger than body
             s += [Paragraph(esc(b), bullet, bulletText="\u2022") for b in x["bullets"]]
     return s
 
