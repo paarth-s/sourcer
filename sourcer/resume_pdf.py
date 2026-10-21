@@ -129,6 +129,7 @@ def _story(r: dict, size: float):
     lead = size * 1.2
     body = ParagraphStyle("b", fontName="Helvetica", fontSize=size, leading=lead)
     bold = ParagraphStyle("bb", parent=body, fontName="Helvetica-Bold")
+    ital = ParagraphStyle("i", parent=body, fontName="Helvetica-Oblique")
     right = ParagraphStyle("r", parent=body, alignment=2)
     bullet = ParagraphStyle("li", parent=body, leftIndent=size * 1.5, bulletIndent=size * 0.4,
                             spaceAfter=size * 0.12)
@@ -166,8 +167,10 @@ def _story(r: dict, size: float):
         for n, x in enumerate(r["experience"]):
             if n:
                 s.append(Spacer(1, size * 0.45))
-            s.append(Paragraph(esc(x["title"]), bold))
-            s.append(row(esc(x["company"]), x["dates"]))
+            # Employer leads (bold, with its dates) so it's clear at a glance where each job was; title sits under it
+            org, _, place = x["company"].partition(", ")
+            s.append(row(f"<b>{esc(org)}</b>" + (f" | {esc(place)}" if place else ""), x["dates"]))
+            s.append(Paragraph(esc(x["title"]), ital))
             s += [Paragraph(esc(b), bullet, bulletText="\u2022") for b in x["bullets"]]
     return s
 
